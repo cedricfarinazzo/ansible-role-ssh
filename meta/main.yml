@@ -1,0 +1,36 @@
+---
+galaxy_info:
+  role_name: ssh
+  namespace: cedricfarinazzo
+  author: Cédric Farinazzo
+  description: An Ansible role for secure SSH server configuration with hardened security settings
+
+  license: MIT
+
+  min_ansible_version: "2.9"
+
+  platforms:
+    - name: Debian
+      versions:
+        - bullseye
+        - bookworm
+    - name: Ubuntu
+      versions:
+        - focal
+        - jammy
+        - noble
+    - name: EL
+      versions:
+        - "8"
+        - "9"
+
+  galaxy_tags:
+    - ssh
+    - openssh
+    - security
+    - hardening
+    - sshd
+    - system
+    - infrastructure
+
+dependencies: []
