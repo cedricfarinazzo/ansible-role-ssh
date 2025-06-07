@@ -1,93 +1,227 @@
-# ansible-role-ssh
+# 🔐 Ansible Role: SSH
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Ansible Galaxy](https://img.shields.io/badge/Ansible%20Galaxy-cedricfarinazzo.ssh-blue)](https://galaxy.ansible.com/cedricfarinazzo/ssh)
 
+> **A comprehensive Ansible role for secure SSH server configuration with hardened security settings based on [SSH Audit hardening guides](https://www.ssh-audit.com/hardening_guides.html).**
 
-## Getting started
+This role provides a secure, production-ready SSH server configuration with support for custom host keys, hardened cryptographic algorithms, and flexible user management.
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+## 🚀 Quick Start
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
-
-```
-cd existing_repo
-git remote add origin https://gitlab.com/sed-infra-pegasus/ansible/ansible-role-ssh.git
-git branch -M main
-git push -uf origin main
+```yaml
+# Simple setup with secure defaults
+- hosts: ssh_servers
+  become: true
+  roles:
+    - cedricfarinazzo.ssh
 ```
 
-## Integrate with your tools
+The role will automatically:
+- ✅ Install and configure OpenSSH server
+- ✅ Apply hardened security settings based on [SSH Audit hardening guides](https://www.ssh-audit.com/hardening_guides.html)
+- ✅ Generate secure host keys if they don't exist
+- ✅ Configure custom SSH port (default: 22) for security through obscurity
+- ✅ Disable password authentication and root login
+- ✅ Enable only secure cryptographic algorithms
 
-- [ ] [Set up project integrations](https://gitlab.com/sed-infra-pegasus/ansible/ansible-role-ssh/-/settings/integrations)
+## 📋 Requirements
 
-## Collaborate with your team
+| Component | Requirement |
+|-----------|-------------|
+| **Operating System** | Linux (Debian/Ubuntu/RHEL/CentOS/Rocky) |
+| **Ansible** | Version 2.9+ |
+| **Python** | Python 3.8+ on target hosts |
+| **Privileges** | Root or sudo access on target hosts |
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+### Supported Distributions
 
-## Test and Deploy
+- ✅ **Debian** 11, 12
+- ✅ **Ubuntu** 20.04, 22.04, 24.04
 
-Use the built-in continuous integration in GitLab.
+## ⚙️ Configuration
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+### Core Variables
 
-***
+The role uses secure defaults but can be customized through these variables:
 
-# Editing this README
+#### SSH Service Configuration
+```yaml
+# Package and service management
+ssh_package: openssh-server           # Package name
+ssh_package_state: present           # Package state
+ssh_service_name: sshd               # Service name (auto-detected)
+ssh_service_state: started           # Service state
+ssh_service_enabled: true            # Enable on boot
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+# Network settings
+ssh_port: 22                         # SSH port
+ssh_protocol: 2                      # SSH protocol version
+```
 
-## Suggestions for a good README
+#### Authentication Configuration
+```yaml
+# Authentication settings
+ssh_login_grace_time: 40             # Login grace time in seconds
+ssh_permit_root_login: "no"          # Disable root login
+ssh_strict_modes: true               # Enable strict mode checking
+ssh_max_auth_tries: 3                # Maximum authentication attempts
+ssh_max_sessions: 10                 # Maximum concurrent sessions
+ssh_pubkey_authentication: true      # Enable public key authentication
+ssh_password_authentication: false   # Disable password authentication
+ssh_permit_empty_passwords: false    # Disable empty passwords
+ssh_kbd_interactive_authentication: false  # Disable keyboard-interactive auth
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+# Kerberos and GSSAPI
+ssh_kerberos_authentication: false   # Disable Kerberos
+ssh_gssapi_authentication: false     # Disable GSSAPI
 
-## Name
-Choose a self-explaining name for your project.
+# PAM integration
+ssh_use_pam: true                    # Enable PAM authentication
+```
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+#### Host Keys Configuration
+```yaml
+# Host key configuration
+ssh_host_keys:
+  - /etc/ssh/custom_ssh_host_rsa_key
+  - /etc/ssh/custom_ssh_host_ed25519_key
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+ssh_generate_host_keys: true         # Generate host keys if missing
+ssh_host_key_types:                  # Key types to generate
+  - rsa
+  - ed25519
+```
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+#### Security and Hardening
+```yaml
+# Connection settings
+ssh_client_alive_count_max: 3        # Max missed keepalive messages
+ssh_client_alive_interval: 120       # Keepalive interval in seconds
+ssh_max_startups: "10:30:100"        # Connection rate limiting
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+# Forwarding settings
+ssh_allow_agent_forwarding: false    # Disable agent forwarding
+ssh_x11_forwarding: false           # Disable X11 forwarding
+ssh_compression: true                # Enable compression
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+# User restrictions
+ssh_allow_users:                     # Allowed users
+  - infra
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+# Authorized keys
+ssh_authorized_keys_file: /etc/ssh/authorized_keys  # Location of authorized keys file
+ssh_authorized_keys: []               # List of authorized keys to manage
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+# Additional settings
+ssh_print_motd: false                 # Print message of the day
+ssh_banner: none                      # SSH banner file path
+ssh_debian_banner: false              # Enable Debian banner
+ssh_accept_env: "LANG LC_*"           # Environment variables to accept
+ssh_syslog_facility: AUTH             # Syslog facility for SSH messages
+```
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+#### Cryptographic Algorithms
+The role includes hardened cryptographic settings based on [SSH Audit hardening guides](https://www.ssh-audit.com/hardening_guides.html):
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+Cryptographic algorithm values are automatically configured per operating system through dedicated variable files in `vars/` directory:
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+- `vars/openssh-8.2.yml` - Compatible with Ubuntu 20.04 (8.2), Debian 11 (8.4)
+- `vars/openssh-9.2.yml` - Compatible with Debian 12 (9.2) 
+- `vars/openssh-9.6.yml` - Compatible with Ubuntu 24.04 (9.6)
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+These files ensure compatibility with each distribution's OpenSSH version and available algorithms. The role automatically detects the OpenSSH version and loads the appropriate algorithm configuration.
 
-## License
-For open source projects, say how it is licensed.
+##### Cryptographic options
+```yaml
+# RSA Key Requirements
+ssh_required_rsa_size: 4096           # Minimum RSA key size
+```
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+## 🎯 Usage Examples
+
+### Basic Secure Setup
+```yaml
+- hosts: ssh_servers
+  become: true
+  roles:
+    - role: cedricfarinazzo.ssh
+```
+
+### Custom Port and Users
+```yaml
+- hosts: ssh_servers
+  become: true
+  roles:
+    - role: cedricfarinazzo.ssh
+      vars:
+        ssh_port: 12345
+        ssh_allow_users:
+          - admin
+          - developer
+          - deploy
+```
+
+### Authorized Keys Management
+```yaml
+- hosts: ssh_servers
+  become: true
+  roles:
+    - role: cedricfarinazzo.ssh
+      vars:
+        ssh_authorized_keys:
+          - user: infra
+            key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI... admin@workstation"
+          - user: infra
+            key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQ... backup@server"
+```
+
+### Custom Host Keys
+```yaml
+- hosts: ssh_servers
+  become: true
+  roles:
+    - role: cedricfarinazzo.ssh
+      vars:
+        ssh_host_keys:
+          - /etc/ssh/ssh_host_rsa_key
+          - /etc/ssh/ssh_host_ed25519_key
+        ssh_host_key_types:
+          - rsa
+          - ed25519
+```
+
+### Additional Configuration
+```yaml
+- hosts: ssh_servers
+  become: true
+  roles:
+    - role: cedricfarinazzo.ssh
+      vars:
+        ssh_additional_config:
+          - "PermitTunnel no"
+          - "ChrootDirectory none"
+          - "AllowTcpForwarding no"
+```
+
+## 🧪 Testing
+
+### Quick Testing
+```bash
+# Run test against debian11
+make test
+
+# Test against all supported distributions  
+make molecule-test-all
+```
+
+## 📦 Dependencies
+
+This role has **minimal external dependencies** and uses:
+- ✅ **Ansible Core Modules** (built-in)
+- ✅ **Standard OS Packages** (openssh-server)
+- ✅ **Optional Collections** (community.general, ansible.posix)
+
+## 👥 Authors & Contributors
+
+**Cédric Farinazzo** ([@cedricfarinazzo](https://github.com/cedricfarinazzo)) - *Author and Maintainer*
