@@ -1,0 +1,4 @@
+---
+# OS-specific variables for RedHat/CentOS/Rocky
+ssh_package: openssh-server
+ssh_service_name: sshd

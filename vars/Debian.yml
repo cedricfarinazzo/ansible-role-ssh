@@ -1,0 +1,4 @@
+---
+# OS-specific variables for Debian/Ubuntu
+ssh_package: openssh-server
+ssh_service_name: ssh

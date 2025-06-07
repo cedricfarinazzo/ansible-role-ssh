@@ -1,0 +1,134 @@
+---
+- name: Include OS-specific variables
+  ansible.builtin.include_vars: "{{ ansible_os_family }}.yml"
+  tags: ssh
+
+- name: Install SSH server
+  ansible.builtin.package:
+    name: "{{ ssh_package }}"
+    state: "{{ ssh_package_state }}"
+  tags: ssh
+
+- name: Detect SSH version for algorithm compatibility
+  ansible.builtin.shell: |
+    set -o pipefail
+    ssh -V 2>&1 | head -1 | sed 's/.*OpenSSH_\([0-9]\+\.[0-9]\+\).*/\1/'
+  args:
+    executable: /bin/bash
+  register: openssh_version_raw
+  changed_when: false
+  tags: ssh
+
+- name: Set SSH version fact
+  ansible.builtin.set_fact:
+    openssh_version: "{{ openssh_version_raw.stdout | float }}"
+    openssh_version_string: "{{ openssh_version_raw.stdout }}"
+  tags: ssh
+
+- name: Determine OpenSSH configuration version to use based on detected version
+  ansible.builtin.set_fact:
+    openssh_config_version: >-
+      {%- if openssh_version_raw.stdout | float >= 9.6 -%}9.6{%- elif openssh_version_raw.stdout | float >= 9.2 -%}9.2{%- else -%}8.2{%- endif -%}
+  tags: ssh
+
+- name: Include OpenSSH version-specific SSH algorithm variables
+  ansible.builtin.include_vars: "openssh-{{ openssh_config_version }}.yml"
+  tags: ssh
+
+- name: Create SSH configuration directory
+  ansible.builtin.file:
+    path: "{{ ssh_config_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  when: ssh_include_config_dir
+  tags: ssh
+
+- name: Create SSH privilege separation directory
+  ansible.builtin.file:
+    path: /run/sshd
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  tags: ssh
+
+- name: Check if host keys exist
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  register: ssh_host_key_files
+  loop: "{{ ssh_host_keys }}"
+  tags: ssh
+
+- name: Generate SSH host keys if they don't exist
+  ansible.builtin.command: "ssh-keygen -t {{ item.1 }} -f {{ item.0 }} -N '' -C 'Host key for {{ ansible_hostname }}'"
+  loop: "{{ ssh_host_keys | zip(ssh_host_key_types) | list }}"
+  loop_control:
+    index_var: key_index
+  when:
+    - ssh_generate_host_keys
+    - not ssh_host_key_files.results[key_index].stat.exists
+  notify: Restart SSH service
+  changed_when: true
+  tags: ssh
+
+- name: Set permissions for SSH host keys
+  ansible.builtin.file:
+    path: "{{ item }}"
+    owner: root
+    group: root
+    mode: '0600'
+  loop: "{{ ssh_host_keys }}"
+  tags: ssh
+
+- name: Set permissions for SSH host public keys
+  ansible.builtin.file:
+    path: "{{ item }}.pub"
+    owner: root
+    group: root
+    mode: '0644'
+  loop: "{{ ssh_host_keys }}"
+  tags: ssh
+
+- name: Create authorized_keys file directory
+  ansible.builtin.file:
+    path: "{{ ssh_authorized_keys_file | dirname }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  tags: ssh
+
+- name: Manage authorized keys
+  ansible.posix.authorized_key:
+    user: "{{ item.user }}"
+    key: "{{ item.key }}"
+    state: "{{ item.state | default('present') }}"
+    exclusive: "{{ item.exclusive | default(false) }}"
+  loop: "{{ ssh_authorized_keys }}"
+  when: ssh_authorized_keys | length > 0
+  tags: ssh
+
+- name: Generate SSH server configuration
+  ansible.builtin.template:
+    src: sshd_config.j2
+    dest: /etc/ssh/sshd_config
+    owner: root
+    group: root
+    mode: '0644'
+    backup: true
+  notify: Restart SSH service
+  tags: ssh
+
+- name: Validate SSH server configuration
+  ansible.builtin.command: /usr/sbin/sshd -t -f /etc/ssh/sshd_config
+  changed_when: false
+  tags: ssh
+
+- name: Start and enable SSH service
+  ansible.builtin.service:
+    name: "{{ ssh_service_name }}"
+    state: "{{ ssh_service_state }}"
+    enabled: "{{ ssh_service_enabled }}"
+  tags: ssh

@@ -1,0 +1,71 @@
+---
+# OpenSSH 9.2 SSH hardening configuration
+# Compatible with: Debian 12 (9.2)
+# Features: Basic hardened algorithms + post-quantum support (sntrup761)
+
+# OpenSSH capability flags for version 9.2
+openssh_supports_rsa_size: true           # Available from 8.6+
+openssh_supports_ca_signature: true       # Available from 8.2+
+openssh_supports_hostbased_pubkey: true   # Available from 8.5+
+openssh_supports_gssapi_kex: true         # Available from 7.3+
+
+# KexAlgorithms for OpenSSH 9.2 (includes post-quantum support)
+ssh_kex_algorithms:
+  - sntrup761x25519-sha512@openssh.com
+  - curve25519-sha256
+  - curve25519-sha256@libssh.org
+  - diffie-hellman-group16-sha512
+  - diffie-hellman-group18-sha512
+  - diffie-hellman-group-exchange-sha256
+
+# Ciphers for OpenSSH 9.2
+ssh_ciphers:
+  - chacha20-poly1305@openssh.com
+  - aes256-gcm@openssh.com
+  - aes128-gcm@openssh.com
+  - aes256-ctr
+  - aes192-ctr
+  - aes128-ctr
+
+# MACs for OpenSSH 9.2
+ssh_macs:
+  - hmac-sha2-256-etm@openssh.com
+  - hmac-sha2-512-etm@openssh.com
+  - umac-128-etm@openssh.com
+
+# Host Key Algorithms for OpenSSH 9.2
+ssh_host_key_algorithms:
+  - ssh-ed25519-cert-v01@openssh.com
+  - rsa-sha2-512-cert-v01@openssh.com
+  - rsa-sha2-256-cert-v01@openssh.com
+  - ssh-ed25519
+  - rsa-sha2-512
+  - rsa-sha2-256
+
+# PubkeyAcceptedAlgorithms for OpenSSH 9.2
+ssh_pubkey_accepted_algorithms:
+  - ssh-ed25519-cert-v01@openssh.com
+  - rsa-sha2-512-cert-v01@openssh.com
+  - rsa-sha2-256-cert-v01@openssh.com
+  - ssh-ed25519
+  - rsa-sha2-512
+  - rsa-sha2-256
+
+# CASignatureAlgorithms for OpenSSH 9.2
+ssh_ca_signature_algorithms:
+  - ssh-ed25519
+  - rsa-sha2-512
+  - rsa-sha2-256
+
+# GSSAPI algorithms
+ssh_gssapi_kex_algorithms:
+  - gss-curve25519-sha256-
+  - gss-group16-sha512-
+
+ssh_hostbased_accepted_algorithms:
+  - ssh-ed25519-cert-v01@openssh.com
+  - ssh-ed25519
+  - rsa-sha2-512-cert-v01@openssh.com
+  - rsa-sha2-512
+  - rsa-sha2-256-cert-v01@openssh.com
+  - rsa-sha2-256

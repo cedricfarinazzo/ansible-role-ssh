@@ -1,0 +1,70 @@
+---
+# OpenSSH 8.2 and 8.4 SSH hardening configuration
+# Compatible with: Ubuntu 20.04 (8.2), Debian 11 (8.4)
+# Features: Basic hardened algorithms, no post-quantum support
+
+# OpenSSH capability flags for version 8.2-8.4
+openssh_supports_rsa_size: false          # Available from 8.6+
+openssh_supports_ca_signature: true       # Available from 8.2+
+openssh_supports_hostbased_pubkey: false  # Available from 8.5+
+openssh_supports_gssapi_kex: true         # Available from 7.3+
+
+# KexAlgorithms for OpenSSH 8.2-8.4 (no post-quantum algorithms)
+ssh_kex_algorithms:
+  - curve25519-sha256
+  - curve25519-sha256@libssh.org
+  - diffie-hellman-group16-sha512
+  - diffie-hellman-group18-sha512
+  - diffie-hellman-group-exchange-sha256
+
+# Ciphers for OpenSSH 8.2-8.4
+ssh_ciphers:
+  - chacha20-poly1305@openssh.com
+  - aes256-gcm@openssh.com
+  - aes128-gcm@openssh.com
+  - aes256-ctr
+  - aes192-ctr
+  - aes128-ctr
+
+# MACs for OpenSSH 8.2-8.4
+ssh_macs:
+  - hmac-sha2-256-etm@openssh.com
+  - hmac-sha2-512-etm@openssh.com
+  - umac-128-etm@openssh.com
+
+# Host Key Algorithms for OpenSSH 8.2-8.4
+ssh_host_key_algorithms:
+  - ssh-ed25519-cert-v01@openssh.com
+  - rsa-sha2-512-cert-v01@openssh.com
+  - rsa-sha2-256-cert-v01@openssh.com
+  - ssh-ed25519
+  - rsa-sha2-512
+  - rsa-sha2-256
+
+# PubkeyAcceptedAlgorithms for OpenSSH 8.2-8.4 (Note: directive available from 8.5+)
+ssh_pubkey_accepted_algorithms:
+  - ssh-ed25519-cert-v01@openssh.com
+  - rsa-sha2-512-cert-v01@openssh.com
+  - rsa-sha2-256-cert-v01@openssh.com
+  - ssh-ed25519
+  - rsa-sha2-512
+  - rsa-sha2-256
+
+# CASignatureAlgorithms for OpenSSH 8.2-8.4
+ssh_ca_signature_algorithms:
+  - ssh-ed25519
+  - rsa-sha2-512
+  - rsa-sha2-256
+
+# GSSAPI algorithms (basic support)
+ssh_gssapi_kex_algorithms:
+  - gss-curve25519-sha256-
+  - gss-group16-sha512-
+
+ssh_hostbased_accepted_algorithms:
+  - ssh-ed25519-cert-v01@openssh.com
+  - ssh-ed25519
+  - rsa-sha2-512-cert-v01@openssh.com
+  - rsa-sha2-512
+  - rsa-sha2-256-cert-v01@openssh.com
+  - rsa-sha2-256

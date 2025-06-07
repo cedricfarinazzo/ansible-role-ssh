@@ -1,0 +1,164 @@
+# This is the sshd server system-wide configuration file.  See
+# sshd_config(5) for more information.
+
+# This sshd was compiled with PATH=/usr/local/bin:/usr/bin:/bin:/usr/games
+
+# The strategy used for options in the default sshd_config shipped with
+# OpenSSH is to specify options with their default value where
+# possible, but leave them commented.  Uncommented options override the
+# default value.
+
+Protocol {{ ssh_protocol }}
+
+{% if ssh_include_config_dir %}
+Include {{ ssh_config_dir }}/*.conf
+{% endif %}
+
+Port {{ ssh_port }}
+#AddressFamily any
+#ListenAddress 0.0.0.0
+#ListenAddress ::
+
+{% for host_key in ssh_host_keys %}
+HostKey {{ host_key }}
+{% endfor %}
+
+# Ciphers and keying
+#RekeyLimit default none
+
+# Logging
+SyslogFacility {{ ssh_syslog_facility }}
+#LogLevel INFO
+
+# Authentication:
+
+LoginGraceTime {{ ssh_login_grace_time }}
+PermitRootLogin {{ ssh_permit_root_login }}
+StrictModes {{ ssh_strict_modes | ternary('yes', 'no') }}
+MaxAuthTries {{ ssh_max_auth_tries }}
+MaxSessions {{ ssh_max_sessions }}
+
+PubkeyAuthentication {{ ssh_pubkey_authentication | ternary('yes', 'no') }}
+
+# Expect .ssh/authorized_keys2 to be disregarded by default in future.
+#AuthorizedKeysFile     .ssh/authorized_keys .ssh/authorized_keys2
+
+#AuthorizedPrincipalsFile none
+
+#AuthorizedKeysCommand none
+#AuthorizedKeysCommandUser nobody
+
+AuthorizedKeysFile {{ ssh_authorized_keys_file }}
+
+# For this to work you will also need host keys in /etc/ssh/ssh_known_hosts
+#HostbasedAuthentication no
+# Change to yes if you don't trust ~/.ssh/known_hosts for
+# HostbasedAuthentication
+#IgnoreUserKnownHosts no
+# Don't read the user's ~/.rhosts and ~/.shosts files
+#IgnoreRhosts yes
+
+# To disable tunneled clear text passwords, change to no here!
+PasswordAuthentication {{ ssh_password_authentication | ternary('yes', 'no') }}
+PermitEmptyPasswords {{ ssh_permit_empty_passwords | ternary('yes', 'no') }}
+
+# Change to yes to enable challenge-response passwords (beware issues with
+# some PAM modules and threads)
+KbdInteractiveAuthentication {{ ssh_kbd_interactive_authentication | ternary('yes', 'no') }}
+
+# Kerberos options
+KerberosAuthentication {{ ssh_kerberos_authentication | ternary('yes', 'no') }}
+#KerberosOrLocalPasswd yes
+#KerberosTicketCleanup yes
+#KerberosGetAFSToken no
+
+# GSSAPI options
+GSSAPIAuthentication {{ ssh_gssapi_authentication | ternary('yes', 'no') }}
+#GSSAPICleanupCredentials yes
+#GSSAPIStrictAcceptorCheck yes
+#GSSAPIKeyExchange no
+
+# Set this to 'yes' to enable PAM authentication, account processing,
+# and session processing. If this is enabled, PAM authentication will
+# be allowed through the KbdInteractiveAuthentication and
+# PasswordAuthentication.  Depending on your PAM configuration,
+# PAM authentication via KbdInteractiveAuthentication may bypass
+# the setting of "PermitRootLogin prohibit-password".
+# If you just want the PAM account and session checks to run without
+# PAM authentication, then enable this but set PasswordAuthentication
+# and KbdInteractiveAuthentication to 'no'.
+UsePAM {{ ssh_use_pam | ternary('yes', 'no') }}
+
+AllowAgentForwarding {{ ssh_allow_agent_forwarding | ternary('yes', 'no') }}
+#AllowTcpForwarding yes
+#GatewayPorts no
+X11Forwarding {{ ssh_x11_forwarding | ternary('yes', 'no') }}
+#X11DisplayOffset 10
+#X11UseLocalhost yes
+#PermitTTY yes
+PrintMotd {{ ssh_print_motd | ternary('yes', 'no') }}
+#PrintLastLog yes
+#TCPKeepAlive yes
+#PermitUserEnvironment no
+Compression {{ ssh_compression | ternary('yes', 'no') }}
+ClientAliveCountMax {{ ssh_client_alive_count_max }}
+ClientAliveInterval {{ ssh_client_alive_interval }}
+#UseDNS no
+#PidFile /run/sshd.pid
+MaxStartups {{ ssh_max_startups }}
+#PermitTunnel no
+#ChrootDirectory none
+#VersionAddendum none
+
+# no default banner path
+Banner {{ ssh_banner }}
+DebianBanner {{ ssh_debian_banner | ternary('yes', 'no') }}
+
+# Allow client to pass locale environment variables
+AcceptEnv {{ ssh_accept_env }}
+
+# override default of no subsystems
+#Subsystem       sftp    /usr/lib/openssh/sftp-server
+
+# Example of overriding settings on a per-user basis
+#Match User anoncvs
+#       X11Forwarding no
+#       AllowTcpForwarding no
+#       PermitTTY no
+#       ForceCommand cvs server
+
+{% if ssh_allow_users | length > 0 %}
+AllowUsers {{ ssh_allow_users | join(' ') }}
+{% endif %}
+
+# Restrict key exchange, cipher, and MAC algorithms, as per sshaudit.com
+# hardening guide.
+KexAlgorithms {{ ssh_kex_algorithms | join(',') }}
+Ciphers {{ ssh_ciphers | join(',') }}
+MACs {{ ssh_macs | join(',') }}
+HostKeyAlgorithms {{ ssh_host_key_algorithms | join(',') }}
+
+{% if openssh_supports_rsa_size %}
+# RequiredRSASize introduced in OpenSSH 8.6
+RequiredRSASize {{ ssh_required_rsa_size }}
+{% endif %}
+
+{% if openssh_supports_ca_signature %}
+# CASignatureAlgorithms introduced in OpenSSH 8.2
+CASignatureAlgorithms {{ ssh_ca_signature_algorithms | join(',') }}
+{% endif %}
+
+{% if openssh_supports_gssapi_kex and ssh_gssapi_kex_algorithms | length > 0 %}
+# GSSAPIKexAlgorithms available since OpenSSH 7.3
+GSSAPIKexAlgorithms {{ ssh_gssapi_kex_algorithms | join(',') }}
+{% endif %}
+
+{% if openssh_supports_hostbased_pubkey %}
+# HostbasedAcceptedAlgorithms and PubkeyAcceptedAlgorithms introduced in OpenSSH 8.5
+HostbasedAcceptedAlgorithms {{ ssh_hostbased_accepted_algorithms | join(',') }}
+PubkeyAcceptedAlgorithms {{ ssh_pubkey_accepted_algorithms | join(',') }}
+{% endif %}
+
+{% for config_line in ssh_additional_config %}
+{{ config_line }}
+{% endfor %}

@@ -1,0 +1,91 @@
+---
+# SSH role defaults
+
+# Package and service management
+ssh_package: openssh-server
+ssh_package_state: present
+ssh_service_name: sshd
+ssh_service_state: started
+ssh_service_enabled: true
+
+# SSH port configuration
+ssh_port: 22
+
+# SSH protocol configuration
+ssh_protocol: 2
+
+# Host key configuration
+ssh_host_keys:
+  - /etc/ssh/custom_ssh_host_rsa_key
+  - /etc/ssh/custom_ssh_host_ed25519_key
+
+# Authentication settings
+ssh_login_grace_time: 40
+ssh_permit_root_login: "no"
+ssh_strict_modes: true
+ssh_max_auth_tries: 3
+ssh_max_sessions: 10
+ssh_pubkey_authentication: true
+ssh_authorized_keys_file: /etc/ssh/authorized_keys
+ssh_password_authentication: false
+ssh_permit_empty_passwords: false
+ssh_kbd_interactive_authentication: false
+
+# Kerberos options
+ssh_kerberos_authentication: false
+
+# GSSAPI options
+ssh_gssapi_authentication: false
+
+# PAM authentication
+ssh_use_pam: true
+
+# Forwarding and display settings
+ssh_allow_agent_forwarding: false
+ssh_x11_forwarding: false
+ssh_print_motd: false
+ssh_compression: true
+
+# Connection settings
+ssh_client_alive_count_max: 3
+ssh_client_alive_interval: 120
+ssh_max_startups: "10:30:100"
+
+# Banner settings
+ssh_banner: none
+ssh_debian_banner: false
+
+# Environment settings
+ssh_accept_env: "LANG LC_*"
+
+# User restrictions
+ssh_allow_users:
+  - infra
+
+# Authorized keys management
+ssh_authorized_keys: []
+
+# Security algorithms - conservative defaults that work across OpenSSH versions
+# These will be overridden by OS-specific variables for optimal security
+
+ssh_required_rsa_size: 4096
+
+# Logging
+ssh_syslog_facility: AUTH
+
+# Additional SSH configuration directives
+ssh_additional_config: []
+# Example:
+# ssh_additional_config:
+#   - "PermitTunnel no"
+#   - "ChrootDirectory none"
+
+# Host key generation
+ssh_generate_host_keys: true
+ssh_host_key_types:
+  - rsa
+  - ed25519
+
+# Include custom configuration from /etc/ssh/sshd_config.d/
+ssh_include_config_dir: false
+ssh_config_dir: "/etc/ssh/sshd_config.d"
