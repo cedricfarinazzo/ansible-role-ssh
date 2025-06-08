@@ -110,7 +110,7 @@ ssh_allow_users:                     # Allowed users
   - infra
 
 # Authorized keys
-ssh_authorized_keys_file: /etc/ssh/authorized_keys  # Location of authorized keys file
+ssh_authorized_keys_file: .ssh/authorized_keys .ssh/authorized_keys2  # Location of authorized keys file
 ssh_authorized_keys: []               # List of authorized keys to manage
 
 # Additional settings

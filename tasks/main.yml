@@ -91,15 +91,6 @@
   loop: "{{ ssh_host_keys }}"
   tags: ssh
 
-- name: Create authorized_keys file directory
-  ansible.builtin.file:
-    path: "{{ ssh_authorized_keys_file | dirname }}"
-    state: directory
-    owner: root
-    group: root
-    mode: '0755'
-  tags: ssh
-
 - name: Manage authorized keys
   ansible.posix.authorized_key:
     user: "{{ item.user }}"
