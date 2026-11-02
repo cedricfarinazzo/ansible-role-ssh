@@ -23,7 +23,7 @@ Public Ansible role `cedricfarinazzo.ssh` (Ansible Galaxy): installs OpenSSH ser
 - `requirements.yml` — collections the role needs at runtime (consumer-facing ranges).
 - `requirements-dev.txt` — controller tooling (ansible-core, ansible-lint, molecule, molecule-plugins, yamllint, ssh-audit), exact pins.
 - `package.json`, `bun.lock`, `.releaserc.json` — semantic-release tooling only; the role itself has no Node code.
-- `.github/workflows/` — `ci.yml` (lint + Molecule matrix), `pr-title.yml` (Conventional Commit title check), `release.yml` (semantic-release on `main`).
+- `.github/workflows/` — `ci.yml` (lint, Molecule matrix, real-SSH `migration` job), `pr-title.yml` (Conventional Commit title check), `release.yml` (semantic-release on `main`).
 - `renovate.json` — dependency updates.
 
 ## Conventions

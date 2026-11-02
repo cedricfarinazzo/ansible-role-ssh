@@ -128,8 +128,12 @@
   when: ssh_port_migration | bool
   tags: ssh
 
+# include, not import: a skipped import still runs its meta tasks (reset_connection ignores when).
 - name: Move sshd to ssh_port in two stages
-  ansible.builtin.import_tasks: port_migration.yml
+  ansible.builtin.include_tasks:
+    file: port_migration.yml
+    apply:
+      tags: ssh
   when:
     - ssh_port_migration | bool
     - ssh_port_probe.msg is defined
@@ -137,7 +141,10 @@
 
 # A rerun after an interrupted stage B: sshd answers on both ports and this connection uses the old one.
 - name: Finish an interrupted migration
-  ansible.builtin.import_tasks: stage_b.yml
+  ansible.builtin.include_tasks:
+    file: stage_b.yml
+    apply:
+      tags: ssh
   when:
     - ssh_port_migration | bool
     - ssh_port_probe.msg is not defined

@@ -19,6 +19,8 @@ docker exec "$NAME" bash -c "
   if command -v apt-get >/dev/null; then apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq openssh-server sudo >/dev/null
   else dnf install -y -q openssh-server sudo >/dev/null; fi
   useradd -m -s /bin/bash tester
+  # EL leaves a new account locked (!!), which its PAM account stack refuses even for key logins
+  usermod -p '*' tester
   install -d -m 700 -o tester -g tester /home/tester/.ssh
   echo '$(cat "$WORK/key.pub")' > /home/tester/.ssh/authorized_keys
   chown tester: /home/tester/.ssh/authorized_keys && chmod 600 /home/tester/.ssh/authorized_keys
@@ -26,7 +28,10 @@ docker exec "$NAME" bash -c "
   ssh-keygen -A >/dev/null
   # The test reconnects from one address many times; OpenSSH 9.8+ would penalise it
   if [ -d /etc/ssh/sshd_config.d ]; then echo 'PerSourcePenalties no' > /etc/ssh/sshd_config.d/00-test.conf; sshd -t 2>/dev/null || rm /etc/ssh/sshd_config.d/00-test.conf; fi
-  systemctl enable --now ssh 2>/dev/null || systemctl enable --now sshd"
+  systemctl enable --now ssh 2>/dev/null || systemctl enable --now sshd
+  # A container still booting keeps /run/nologin, and pam_nologin then refuses every login but root
+  systemctl start systemd-user-sessions 2>/dev/null || true
+  rm -f /run/nologin /etc/nologin"
 IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$NAME")
 ready=0
 for _ in $(seq 30); do
@@ -36,7 +41,8 @@ for _ in $(seq 30); do
 done
 if [[ $ready -ne 1 ]]; then
   echo "FAIL sshd in the container never accepted the test key" >&2
-  docker exec "$NAME" journalctl -u ssh -u sshd --no-pager | tail -30 >&2 || true
+  docker exec "$NAME" bash -c 'systemctl is-system-running; ls -l /run/nologin /etc/nologin; chage -l tester; grep -v "^#" /etc/pam.d/sshd' >&2 || true
+  docker exec "$NAME" journalctl -u ssh -u sshd --no-pager | tail -10 >&2 || true
   exit 1
 fi
 
@@ -48,6 +54,8 @@ all:
     target:
       ansible_host: $IP
       ansible_user: tester
+      # As inventory var it beats a task's become keyword: the role must still read SSH_CONNECTION
+      ansible_become: true
       ansible_port: ${3:-$1}
       ansible_ssh_private_key_file: $WORK/key
       ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
@@ -83,11 +91,16 @@ check "port 2222 still open" open_port 2222
 check "port 2223 closed" bash -c "! timeout 3 bash -c '</dev/tcp/$IP/2223' 2>/dev/null"
 
 # Interrupted stage B: sshd on both ports, the inventory still connects on the old one.
-docker exec "$NAME" bash -c "sed -i 's/^Port 2222$/Port 2222\nPort 2224/' /etc/ssh/sshd_config && (systemctl restart ssh 2>/dev/null || systemctl restart sshd)"
+docker exec "$NAME" bash -c "sed -i 's/^Port 2222$/Port 2222\nPort 2224/' /etc/ssh/sshd_config
+  if systemctl is-active -q ssh.socket; then systemctl daemon-reload && systemctl restart ssh.socket
+  else systemctl restart ssh 2>/dev/null || systemctl restart sshd; fi"
+check "both ports open before the interrupted run" bash -c "timeout 3 bash -c '</dev/tcp/$IP/2224' && timeout 3 bash -c '</dev/tcp/$IP/2222'"
 inventory 2224 2222 2222
 play "$@" > "$WORK/run4.log" 2>&1 && r=0 || r=$?
+result() { grep -A1 -F "TASK [ansible-role-ssh : $1]" "$WORK/run4.log" | grep -q "^$2: \[target\]"; }
 check "interrupted migration finishes" test "$r" -eq 0
-check "stage B ran for it" grep -q 'Keep the two-port sshd_config' "$WORK/run4.log"
+check "stage B ran for it" result "Keep the two-port sshd_config" changed
+check "stage A did not" bash -c "! grep -A1 -F 'TASK [ansible-role-ssh : Keep the sshd_config that works today]' '$WORK/run4.log' | grep -q '^changed:'"
 check "port 2224 open" open_port 2224
 check "port 2222 closed" bash -c "! timeout 3 bash -c '</dev/tcp/$IP/2222' 2>/dev/null"
 

@@ -1,17 +1,29 @@
 ---
-# The server port of this SSH session, from the target (not from ansible_port / ansible_ssh_port, which may disagree).
+# The server port of this SSH session, read on the target: ansible_port and ansible_ssh_port may disagree.
+# ansible_become as a task var: an inventory ansible_become beats the keyword, and sudo drops SSH_CONNECTION.
 - name: Read the server port of this SSH connection
   ansible.builtin.command: printenv SSH_CONNECTION
-  become: false
+  vars:
+    ansible_become: false
   check_mode: false
   register: openssh_ssh_connection
   changed_when: false
   failed_when: false
   when: ansible_connection | default('ssh') in openssh_ssh_connection_plugins
 
+# Over SSH the port must be known; guessing would let the plain config drop the old port unproven.
+- name: Fail when the SSH session port cannot be read
+  ansible.builtin.assert:
+    that:
+      - openssh_ssh_connection.rc == 0
+      - openssh_ssh_connection.stdout.split() | length == 4
+    fail_msg: "Cannot read SSH_CONNECTION on the target ({{ openssh_ssh_connection.stdout | default('') }}); the port migration needs it"
+    quiet: true
+  when: ansible_connection | default('ssh') in openssh_ssh_connection_plugins
+
 # Non-SSH connections (e.g. docker) do not depend on the port: treat them as already on ssh_port.
 - name: Record the connection port
   ansible.builtin.set_fact:
     openssh_connection_port: >-
-      {{ (openssh_ssh_connection.stdout | default('')).split()[3]
-         if (openssh_ssh_connection.stdout | default('')).split() | length == 4 else ssh_port }}
+      {{ openssh_ssh_connection.stdout.split()[3]
+         if ansible_connection | default('ssh') in openssh_ssh_connection_plugins else ssh_port }}

@@ -19,7 +19,8 @@
   post_tasks:
     - name: Report the connection port
       ansible.builtin.command: printenv SSH_CONNECTION
-      become: false
+      vars:
+        ansible_become: false
       changed_when: false
       register: final_connection
 
