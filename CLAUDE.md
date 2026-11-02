@@ -20,12 +20,12 @@ Public Ansible role `cedricfarinazzo.ssh` (Ansible Galaxy): installs OpenSSH ser
 - `requirements.yml` — collections the role needs at runtime (consumer-facing ranges).
 - `requirements-dev.txt` — controller tooling (ansible-core, ansible-lint, molecule, yamllint), exact pins.
 - `package.json`, `bun.lock`, `.releaserc.json` — semantic-release tooling only; the role itself has no Node code.
-- `.github/workflows/` — `ci.yml` (lint + Molecule matrix), `pr-title.yml` (Conventional Commit title check), `release.yml` (semantic-release on `main`, then Galaxy import).
+- `.github/workflows/` — `ci.yml` (lint + Molecule matrix), `pr-title.yml` (Conventional Commit title check), `release.yml` (semantic-release on `main`).
 - `renovate.json` — dependency updates.
 
 ## Conventions
 
-- **Conventional Commits.** `feat:` → minor, `fix:` / `perf:` → patch, `!` or a `BREAKING CHANGE:` footer → major; `docs:` / `ci:` / `chore:` / `test:` / `refactor:` / `build:` release nothing. Scope optional (`feat(template): …`). PRs are squash-merged, so the **PR title is the commit** semantic-release reads; `pr-title.yml` checks it.
+- **Conventional Commits** (`conventionalcommits` preset, so a `!` after the type is breaking). `feat:` → minor, `fix:` / `perf:` → patch, `!` or a `BREAKING CHANGE:` footer → major; `docs:` / `ci:` / `chore:` / `test:` / `refactor:` / `build:` release nothing. Scope optional (`feat(template): …`). PRs are squash-merged, so the **PR title is the commit** semantic-release reads; `pr-title.yml` checks it.
 - **Breaking = a consumer must act.** Dropping a platform, renaming or removing a variable, changing a default that alters the rendered `sshd_config` in a way that can lock someone out or reject a client (port, users, algorithms, auth methods, host key paths).
 - **Tags are bare semver** (`1.2.3`, no `v`), matching the tags published before semantic-release (`tagFormat` in `.releaserc.json`). Release notes live in GitHub Releases; there is no `CHANGELOG.md` and no release commit (the `main` ruleset requires a PR, so CI cannot push one).
 - **Variables:** every user-facing variable starts with `ssh_`, is defined in `defaults/main.yml` and documented in `README.md` in the same PR. Internal facts start with `openssh_`.
@@ -51,7 +51,7 @@ Public Ansible role `cedricfarinazzo.ssh` (Ansible Galaxy): installs OpenSSH ser
 
 1. A PR is squash-merged into `main` with a Conventional Commit title.
 2. `release.yml` runs `bunx semantic-release`: it analyses commits since the last tag, creates the tag and a GitHub Release with generated notes, and comments on the released PRs.
-3. If a tag was created and the `GALAXY_API_KEY` secret is set, the job runs `ansible-galaxy role import` so Galaxy picks the new version up. Without the secret the step only prints a notice.
+3. Ansible Galaxy watches the repository and imports each new tag by itself; nothing in CI pushes to Galaxy.
 
 ## Commands
 

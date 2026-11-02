@@ -223,7 +223,7 @@ CI (`.github/workflows/ci.yml`) runs the lint and the Molecule matrix on every p
 
 ## 🚢 Releases
 
-Versions are cut by [semantic-release](https://github.com/semantic-release/semantic-release) from [Conventional Commits](https://www.conventionalcommits.org/) on `main`: `fix:` releases a patch, `feat:` a minor, a `!` or `BREAKING CHANGE:` footer a major. Pull requests are squash-merged, so the pull request title must follow the convention (checked in CI). Each release gets a bare semver tag (`1.2.3`), GitHub release notes, and an Ansible Galaxy import. [Renovate](https://docs.renovatebot.com/) keeps the tooling and the pinned GitHub Actions up to date.
+Versions are cut by [semantic-release](https://github.com/semantic-release/semantic-release) from [Conventional Commits](https://www.conventionalcommits.org/) on `main`: `fix:` releases a patch, `feat:` a minor, a `!` or `BREAKING CHANGE:` footer a major. Pull requests are squash-merged, so the pull request title must follow the convention (checked in CI). Each release gets a bare semver tag (`1.2.3`) and GitHub release notes; Ansible Galaxy imports the new tag from the repository. [Renovate](https://docs.renovatebot.com/) keeps the tooling and the pinned GitHub Actions up to date.
 
 ## 📦 Dependencies
 
