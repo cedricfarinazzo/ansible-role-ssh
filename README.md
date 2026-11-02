@@ -42,7 +42,7 @@ Each is tested in CI with Molecule:
 |--------------|----------|---------|
 | **Debian** | 12, 13 | 9.2, 10.0 |
 | **Ubuntu** | 22.04, 24.04, 26.04 | 8.9, 9.6, 10.2 |
-| **Rocky Linux / RHEL family** | 9, 10 | 8.7, 9.9 |
+| **Rocky Linux / RHEL family** | 9, 10 | 9.9 (EL 9 rebased from 8.7), 9.9 |
 
 The role reads the installed OpenSSH version from the package database and loads the algorithm set for it, so the crypto follows OpenSSH, not the distribution name.
 
