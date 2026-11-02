@@ -22,6 +22,8 @@ provisioner:
   inventory:
     host_vars:
       instance:
+        # The container runs as root; sudo there can fail on PAM (seen on EL 9 in CI)
+        ansible_become: false
         ssh_port: 12345
         ssh_port_migration: true
         ssh_port_migration_from: 22
