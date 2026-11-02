@@ -33,10 +33,9 @@
     - name: Load the role's variables
       ansible.builtin.include_vars: ../../../vars/main.yml
 
-    - name: Load the role's defaults under a namespace (they must not override the scenario's host_vars)
-      ansible.builtin.include_vars:
-        file: ../../../defaults/main.yml
-        name: role_defaults
+    # Loaded at top level (they reference each other); the checks below use literal ports, not ssh_port.
+    - name: Load the role's defaults
+      ansible.builtin.include_vars: ../../../defaults/main.yml
 
     - name: Detect the OpenSSH version the way the role does
       ansible.builtin.include_tasks: ../../../tasks/openssh_version.yml
@@ -55,11 +54,11 @@
     - name: Verify the algorithm lists sshd runs with are the ones the role computed
       ansible.builtin.assert:
         that:
-          - sshd_t['kexalgorithms'] == role_defaults.ssh_kex_algorithms | join(',')
-          - sshd_t['ciphers'] == role_defaults.ssh_ciphers | join(',')
-          - sshd_t['macs'] == role_defaults.ssh_macs | join(',')
-          - sshd_t['hostkeyalgorithms'] == role_defaults.ssh_host_key_algorithms | join(',')
-          - sshd_t['pubkeyacceptedalgorithms'] == role_defaults.ssh_pubkey_accepted_algorithms | join(',')
+          - sshd_t['kexalgorithms'] == ssh_kex_algorithms | join(',')
+          - sshd_t['ciphers'] == ssh_ciphers | join(',')
+          - sshd_t['macs'] == ssh_macs | join(',')
+          - sshd_t['hostkeyalgorithms'] == ssh_host_key_algorithms | join(',')
+          - sshd_t['pubkeyacceptedalgorithms'] == ssh_pubkey_accepted_algorithms | join(',')
           - "'ecdsa' not in sshd_t['pubkeyacceptedalgorithms']"
           - "'diffie-hellman' not in sshd_t['kexalgorithms'] or openssh_version is version('10.0', '<')"
           - "'mlkem768x25519-sha256' in sshd_t['kexalgorithms'] or openssh_version is version('9.9', '<')"
