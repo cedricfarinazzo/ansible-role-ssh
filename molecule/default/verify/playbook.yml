@@ -130,7 +130,7 @@
 
     - name: Test SSH connection to configured port
       ansible.builtin.wait_for:
-        host: "{{ ansible_default_ipv4.address }}"
+        host: "{{ ansible_facts['default_ipv4']['address'] }}"
         port: 12345
         timeout: 10
         state: started
@@ -145,7 +145,7 @@
 
     # ssh-audit (requirements-dev.txt) runs on the controller: some targets' Python is too old for it
     - name: Run ssh-audit from the controller against the configured port
-      ansible.builtin.command: "ssh-audit {{ ansible_default_ipv4.address }}:12345"
+      ansible.builtin.command: "ssh-audit {{ ansible_facts['default_ipv4']['address'] }}:12345"
       delegate_to: localhost
       become: false
       register: ssh_audit_result
@@ -165,7 +165,7 @@
         success_msg: "ssh-audit security verification passed successfully"
 
     - name: Run ssh-audit in JSON format for detailed analysis
-      ansible.builtin.command: "ssh-audit --json {{ ansible_default_ipv4.address }}:12345"
+      ansible.builtin.command: "ssh-audit --json {{ ansible_facts['default_ipv4']['address'] }}:12345"
       delegate_to: localhost
       become: false
       register: ssh_audit_json_result
@@ -180,11 +180,11 @@
     - name: Verify no critical or high severity findings
       ansible.builtin.assert:
         that:
+          - ssh_audit_json_result.rc in [0, 2]
           - ssh_audit_json.banner is defined
           - ssh_audit_json.banner.software is defined
         fail_msg: "ssh-audit JSON output is missing expected fields"
         success_msg: "ssh-audit completed analysis successfully"
-      when: ssh_audit_json is defined
 
     - name: Check for weak algorithms (if any are reported)
       ansible.builtin.debug:

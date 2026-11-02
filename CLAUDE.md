@@ -14,11 +14,11 @@ Public Ansible role `cedricfarinazzo.ssh` (Ansible Galaxy): installs OpenSSH ser
 - `tasks/main.yml` — install, host keys, authorized keys, template (validated with `sshd -t` before it replaces the live file), service.
 - `templates/sshd_config.j2` — the whole `sshd_config`; a directive newer than the oldest supported OpenSSH sits behind an `openssh_supports_*` flag.
 - `handlers/main.yml` — restart the service.
-- `meta/main.yml` — Galaxy metadata; `platforms` lists exactly what CI tests.
+- `meta/main.yml` — Galaxy metadata.
 - `molecule/default/` — the one Molecule scenario (docker driver, `geerlingguy/docker-<distro>-ansible` images); `verify/` asserts the rendered config and runs `ssh-audit`; `collections.yml` holds test-only collections.
 - `run-tests.sh` / `Makefile` — local Molecule entry points; `run-tests.sh <distro>`.
 - `requirements.yml` — collections the role needs at runtime (consumer-facing ranges).
-- `requirements-dev.txt` — controller tooling (ansible-core, ansible-lint, molecule, yamllint), exact pins.
+- `requirements-dev.txt` — controller tooling (ansible-core, ansible-lint, molecule, molecule-plugins, yamllint, ssh-audit), exact pins.
 - `package.json`, `bun.lock`, `.releaserc.json` — semantic-release tooling only; the role itself has no Node code.
 - `.github/workflows/` — `ci.yml` (lint + Molecule matrix), `pr-title.yml` (Conventional Commit title check), `release.yml` (semantic-release on `main`).
 - `renovate.json` — dependency updates.
@@ -37,7 +37,7 @@ Public Ansible role `cedricfarinazzo.ssh` (Ansible Galaxy): installs OpenSSH ser
 
 ## Supported platforms
 
-`meta/main.yml` `platforms`, the CI matrix in `.github/workflows/ci.yml`, the `README.md` table and `run-tests.sh --help` list the same set. End-of-life releases are dropped (a `feat!:` change), not kept as non-blocking jobs.
+The CI matrix in `.github/workflows/ci.yml` is the tested set; every job blocks.
 
 ### Adding a platform — checklist
 
@@ -65,5 +65,6 @@ Public Ansible role `cedricfarinazzo.ssh` (Ansible Galaxy): installs OpenSSH ser
 ## Gotchas
 
 - The Molecule docker driver comes from `molecule-plugins[docker]` and needs `community.docker` (`molecule/default/collections.yml`, installed by the `dependency` step).
+- Renovate automerge cannot complete while the `main` ruleset requires approval of the most recent push: Renovate PRs wait for the owner.
 - `ssh-audit` exits 0 (clean), 1 (connection error), 2 (warnings), 3 (failures); its JSON flag is `--json`.
 - `sshd -t` rejects unknown directives, so a directive is guarded by the OpenSSH version that introduced it.

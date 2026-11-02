@@ -9,15 +9,30 @@
   "semanticCommits": "enabled",
   "packageRules": [
     {
-      "matchUpdateTypes": ["patch", "pin", "digest"],
+      "matchUpdateTypes": [
+        "patch",
+        "pin",
+        "digest"
+      ],
       "automerge": true,
       "automergeType": "pr",
-      "platformAutomerge": true
+      "platformAutomerge": false
     },
     {
       "description": "Consumer-facing collection ranges in requirements.yml stay ranges: widen, never pin",
-      "matchManagers": ["ansible-galaxy"],
-      "rangeStrategy": "widen"
+      "matchManagers": [
+        "ansible-galaxy"
+      ],
+      "rangeStrategy": "widen",
+      "matchFileNames": [
+        "requirements.yml"
+      ]
     }
-  ]
+  ],
+  "ansible-galaxy": {
+    "managerFilePatterns": [
+      "/(^|/)(galaxy|requirements)(\\.ansible)?\\.ya?ml$/",
+      "/(^|/)molecule/.+/collections\\.ya?ml$/"
+    ]
+  }
 }

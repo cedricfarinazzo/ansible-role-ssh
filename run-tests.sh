@@ -8,8 +8,8 @@ function show_usage() {
     echo "Run molecule tests for the SSH Ansible role"
     echo
     echo "Arguments:"
-    echo "  DISTRO    Distribution to test with (default: debian11)"
-    echo "            Supported: debian11, debian12, ubuntu2004, ubuntu2404"
+    echo "  DISTRO    Distribution to test with (default: debian12)"
+    echo "            Supported: debian12, ubuntu2404"
     echo
     echo "Examples:"
     echo "  $0              # Test with Debian 11"
@@ -67,20 +67,18 @@ echo "Python virtual environment: ${VENV_PATH}"
 
 # Pull Docker image in advance to avoid timeout issues
 echo -e "${YELLOW}Pulling Docker image...${NC}"
-docker pull geerlingguy/docker-${1:-debian11}-ansible:latest
+docker pull geerlingguy/docker-${1:-debian12}-ansible:latest
 
 # Set up environment variables
-export MOLECULE_DISTRO=${1:-debian11}
+export MOLECULE_DISTRO=${1:-debian12}
 export MOLECULE_NO_LOG=false
 export MOLECULE_ROLE_NAME_CHECK=0
 
 echo -e "${YELLOW}Running molecule test with ${MOLECULE_DISTRO}...${NC}"
 
-# Run the test in the virtual environment with direct command execution
-source "${VENV_PATH}/bin/activate" && molecule test
-
-# Check for success
-if [ $? -eq 0 ]; then
+# shellcheck source=/dev/null
+source "${VENV_PATH}/bin/activate"
+if molecule test; then
     echo -e "${GREEN}Tests completed successfully!${NC}"
 else
     echo -e "${RED}Tests failed.${NC}"
