@@ -114,6 +114,7 @@ ssh_authorized_keys_file: .ssh/authorized_keys .ssh/authorized_keys2  # Location
 ssh_authorized_keys: []               # List of authorized keys to manage
 
 # Additional settings
+ssh_subsystem_sftp: ""                # SFTP server command, e.g. /usr/lib/openssh/sftp-server (empty: no Subsystem line)
 ssh_print_motd: false                 # Print message of the day
 ssh_banner: none                      # SSH banner file path
 ssh_debian_banner: false              # Enable Debian banner

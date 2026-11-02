@@ -73,6 +73,10 @@ ssh_required_rsa_size: 4096
 # Logging
 ssh_syslog_facility: AUTH
 
+# SFTP subsystem command; empty keeps the setting out of sshd_config (no sftp, scp falls back to SCP mode)
+# Debian: /usr/lib/openssh/sftp-server, RedHat: /usr/libexec/openssh/sftp-server
+ssh_subsystem_sftp: ""
+
 # Additional SSH configuration directives
 ssh_additional_config: []
 # Example:

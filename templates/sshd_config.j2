@@ -117,8 +117,9 @@ DebianBanner {{ ssh_debian_banner | ternary('yes', 'no') }}
 # Allow client to pass locale environment variables
 AcceptEnv {{ ssh_accept_env }}
 
-# override default of no subsystems
-#Subsystem       sftp    /usr/lib/openssh/sftp-server
+{% if ssh_subsystem_sftp %}
+Subsystem sftp {{ ssh_subsystem_sftp }}
+{% endif %}
 
 # Example of overriding settings on a per-user basis
 #Match User anoncvs
