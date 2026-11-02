@@ -1,0 +1,57 @@
+name: release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+
+      - run: bun install --frozen-lockfile
+
+      - name: Snapshot tags before release
+        run: git tag -l | sort > "$RUNNER_TEMP/tags_before.txt"
+
+      - name: semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bunx semantic-release
+
+      - name: Find the tag this run created
+        id: tag
+        run: |
+          git fetch --tags --force
+          echo "new=$(comm -13 "$RUNNER_TEMP/tags_before.txt" <(git tag -l | sort) | tail -n 1)" >> "$GITHUB_OUTPUT"
+
+      # Galaxy reads the role from GitHub; skipped while the GALAXY_API_KEY secret is unset.
+      - name: Import the release into Ansible Galaxy
+        if: steps.tag.outputs.new != ''
+        env:
+          GALAXY_API_KEY: ${{ secrets.GALAXY_API_KEY }}
+        run: |
+          if [ -z "$GALAXY_API_KEY" ]; then
+            echo "::notice::GALAXY_API_KEY not set; ${{ steps.tag.outputs.new }} not imported into Galaxy"
+            exit 0
+          fi
+          pip install "$(grep '^ansible-core==' requirements-dev.txt)"
+          ansible-galaxy role import --token "$GALAXY_API_KEY" cedricfarinazzo ansible-role-ssh
