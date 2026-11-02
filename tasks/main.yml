@@ -109,6 +109,7 @@
     group: root
     mode: '0644'
     backup: true
+    validate: /usr/sbin/sshd -t -f %s
   notify: Restart SSH service
   tags: ssh
 
