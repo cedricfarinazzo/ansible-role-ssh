@@ -1,4 +1,4 @@
-#!/bin/zsh
+#!/usr/bin/env bash
 # Script to run molecule tests for the SSH Ansible role
 
 # Function to display usage
@@ -88,6 +88,8 @@ docker pull geerlingguy/docker-${1:-debian11}-ansible:latest
 export MOLECULE_DISTRO=${1:-debian11}
 export MOLECULE_NO_LOG=false
 export MOLECULE_ROLE_NAME_CHECK=0
+# molecule-docker's create.yml has a non-boolean conditional that ansible-core 2.19+ rejects
+export ANSIBLE_ALLOW_BROKEN_CONDITIONALS=true
 
 echo -e "${YELLOW}Running molecule test with ${MOLECULE_DISTRO}...${NC}"
 

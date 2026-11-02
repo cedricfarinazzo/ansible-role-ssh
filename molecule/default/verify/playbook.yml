@@ -165,15 +165,16 @@
       ansible.builtin.debug:
         var: ssh_audit_result.stdout_lines
 
+    # ssh-audit exits 0 (good), 1 (connection error), 2 (warnings only) or 3 (failures)
     - name: Check ssh-audit exit code for critical issues
       ansible.builtin.assert:
         that:
-          - ssh_audit_result.rc == 0
+          - ssh_audit_result.rc in [0, 2]
         fail_msg: "ssh-audit found critical security issues. Exit code: {{ ssh_audit_result.rc }}. Check the output above for details."
         success_msg: "ssh-audit security verification passed successfully"
 
     - name: Run ssh-audit in JSON format for detailed analysis
-      ansible.builtin.command: ssh-audit --format=json localhost:12345
+      ansible.builtin.command: ssh-audit --json localhost:12345
       register: ssh_audit_json_result
       changed_when: false
       failed_when: false
@@ -181,7 +182,7 @@
     - name: Parse ssh-audit JSON results
       ansible.builtin.set_fact:
         ssh_audit_json: "{{ ssh_audit_json_result.stdout | from_json }}"
-      when: ssh_audit_json_result.rc == 0
+      when: ssh_audit_json_result.rc in [0, 2]
 
     - name: Verify no critical or high severity findings
       ansible.builtin.assert:
@@ -195,4 +196,3 @@
     - name: Check for weak algorithms (if any are reported)
       ansible.builtin.debug:
         msg: "SSH-Audit analysis completed. Check output above for any security recommendations."
-
