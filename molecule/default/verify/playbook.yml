@@ -143,20 +143,11 @@
         fail_msg: "SSH connection test failed - port 12345 is not accessible"
         success_msg: "SSH connection test successful - port 12345 is accessible"
 
-    # SSH Audit verification using https://github.com/jtesta/ssh-audit
-    - name: Install pip3 for ssh-audit installation
-      ansible.builtin.package:
-        name: python3-pip
-        state: present
-
-    - name: Install ssh-audit using pip3
-      ansible.builtin.pip:
-        name: ssh-audit
-        state: present
-        executable: pip3
-
-    - name: Run ssh-audit against localhost on configured port
-      ansible.builtin.command: ssh-audit localhost:12345
+    # ssh-audit (requirements-dev.txt) runs on the controller: some targets' Python is too old for it
+    - name: Run ssh-audit from the controller against the configured port
+      ansible.builtin.command: "ssh-audit {{ ansible_default_ipv4.address }}:12345"
+      delegate_to: localhost
+      become: false
       register: ssh_audit_result
       changed_when: false
       failed_when: false
@@ -174,7 +165,9 @@
         success_msg: "ssh-audit security verification passed successfully"
 
     - name: Run ssh-audit in JSON format for detailed analysis
-      ansible.builtin.command: ssh-audit --json localhost:12345
+      ansible.builtin.command: "ssh-audit --json {{ ansible_default_ipv4.address }}:12345"
+      delegate_to: localhost
+      become: false
       register: ssh_audit_json_result
       changed_when: false
       failed_when: false
