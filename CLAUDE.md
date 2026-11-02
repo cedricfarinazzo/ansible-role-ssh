@@ -17,7 +17,7 @@ Public Ansible role `cedricfarinazzo.ssh` (Ansible Galaxy): installs OpenSSH ser
 - `templates/sshd_config.j2` — the whole `sshd_config`; a directive newer than `openssh_minimum_version` sits behind an `openssh_supports_*` flag. `moduli.j2` rewrites `/etc/ssh/moduli`.
 - `handlers/main.yml` — restart the service.
 - `meta/main.yml` — Galaxy metadata; `platforms` lists exactly what CI tests.
-- `tests/migration/run.sh <distro>` — the port migration over real SSH (CI: debian13, rockylinux9, rockylinux10, ubuntu2404 with and without socket activation) against a container (move, rerun, refused login, interrupted stage B); Molecule's docker connection cannot test it.
+- `tests/migration/run.sh <distro>` — the port migration over real SSH (CI: debian13, ubuntu2404 with and without socket activation; EL only locally, see Gotchas) against a container (move, rerun, refused login, interrupted stage B); Molecule's docker connection cannot test it.
 - `molecule/default/` — the one Molecule scenario (docker driver, `geerlingguy/docker-<distro>-ansible` images); `verify/` compares `sshd -T` (the effective config) with what the role computed, checks the moduli and runs `ssh-audit`; `collections.yml` holds test-only collections.
 - `run-tests.sh` / `Makefile` — local Molecule entry points; `run-tests.sh <distro>`.
 - `requirements.yml` — collections the role needs at runtime (consumer-facing ranges).
@@ -72,7 +72,7 @@ Public Ansible role `cedricfarinazzo.ssh` (Ansible Galaxy): installs OpenSSH ser
 - `ssh-audit` exits 0 (clean), 1 (connection error), 2 (warnings), 3 (failures); its JSON flag is `--json`.
 - `sshd -t` rejects unknown directives and unknown algorithm names, so each is guarded by the OpenSSH version that introduced it.
 - sshd keeps the **first** value of a directive: `ssh_additional_config` (written last) cannot override one the template sets, and `Include` (written first, when enabled) overrides the role.
-- On GitHub runners PAM account checks fail in the EL containers (`unix_chkpwd: could not obtain user info`, `/etc/shadow` is 0000 there; sshd: 'Access denied … by PAM account configuration', sudo: 'cannot retrieve authentication info'): the Molecule scenario runs without become, `tests/migration/run.sh` makes `/etc/shadow` owner-readable.
+- On GitHub runners PAM account checks fail in the EL containers (sshd: 'Access denied … by PAM account configuration' with `unix_chkpwd: could not obtain user info`; sudo: 'cannot retrieve authentication info'); not reproduced locally, cause not found. The Molecule scenario runs without become; the real-SSH migration test runs EL only locally (`tests/migration/run.sh rockylinux9`).
 - Molecule's docker connection ignores `ansible_port`: the scenario proves the listening ports, not the reconnect; test a real migration against a VM.
 - `/etc/ssh/moduli` field 5 is the size minus one (3071 for 3072 bits).
 - Ubuntu 22.10+ `ssh.socket`: a systemd generator derives the listeners from `sshd_config`; a port change needs `daemon-reload` + socket restart (handled by the handlers when `ssh_socket_activation: true`).

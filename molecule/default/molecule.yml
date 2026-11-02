@@ -22,7 +22,7 @@ provisioner:
   inventory:
     host_vars:
       instance:
-        # The container runs as root; EL sudo fails PAM account checks on GitHub runners (see CLAUDE.md)
+        # The container runs as root; EL sudo fails PAM account checks on GitHub runners (see CLAUDE.md gotchas)
         ansible_become: false
         ssh_port: 12345
         # The controller audits from the docker bridge; OpenSSH 9.8+ would penalise the repeated audits

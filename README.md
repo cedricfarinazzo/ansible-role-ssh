@@ -36,7 +36,7 @@ The role will automatically:
 
 ### Supported Distributions
 
-Each is tested in CI with Molecule; the port migration is also tested over real SSH (`tests/migration/run.sh`). The oldest OpenSSH the role accepts is 8.9.
+Each is tested in CI with Molecule; the port migration is also tested over real SSH (`tests/migration/run.sh`; in CI on Debian and Ubuntu, EL locally). The oldest OpenSSH the role accepts is 8.9.
 
 | Distribution | Versions | OpenSSH |
 |--------------|----------|---------|
