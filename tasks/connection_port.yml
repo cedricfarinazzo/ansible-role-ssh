@@ -1,0 +1,17 @@
+---
+# The server port of this SSH session, from the target (not from ansible_port / ansible_ssh_port, which may disagree).
+- name: Read the server port of this SSH connection
+  ansible.builtin.command: printenv SSH_CONNECTION
+  become: false
+  check_mode: false
+  register: openssh_ssh_connection
+  changed_when: false
+  failed_when: false
+  when: ansible_connection | default('ssh') in openssh_ssh_connection_plugins
+
+# Non-SSH connections (e.g. docker) do not depend on the port: treat them as already on ssh_port.
+- name: Record the connection port
+  ansible.builtin.set_fact:
+    openssh_connection_port: >-
+      {{ (openssh_ssh_connection.stdout | default('')).split()[3]
+         if (openssh_ssh_connection.stdout | default('')).split() | length == 4 else ssh_port }}

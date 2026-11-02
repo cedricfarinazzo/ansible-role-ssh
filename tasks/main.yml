@@ -10,7 +10,7 @@
   tags: ssh
 
 - name: Detect the installed OpenSSH version
-  ansible.builtin.include_tasks: openssh_version.yml
+  ansible.builtin.import_tasks: openssh_version.yml
   tags: ssh
 
 - name: Create SSH configuration directory
@@ -20,7 +20,7 @@
     owner: root
     group: root
     mode: '0755'
-  when: ssh_include_config_dir
+  when: ssh_include_config_dir | bool
   tags: ssh
 
 - name: Create SSH privilege separation directory
@@ -45,7 +45,7 @@
   loop_control:
     index_var: key_index
   when:
-    - ssh_generate_host_keys
+    - ssh_generate_host_keys | bool
     - not ssh_host_key_files.results[key_index].stat.exists
   notify: Restart SSH service
   changed_when: true
@@ -76,7 +76,7 @@
   tags: ssh
 
 - name: Filter weak Diffie-Hellman moduli
-  ansible.builtin.include_tasks: moduli.yml
+  ansible.builtin.import_tasks: moduli.yml
   when:
     - ssh_moduli_minimum | int > 0
     - ssh_moduli_stat.stat.exists
@@ -93,12 +93,12 @@
   tags: ssh
 
 - name: Manage the SELinux label of the SSH port
-  ansible.builtin.include_tasks: selinux.yml
+  ansible.builtin.import_tasks: selinux.yml
   when: ansible_facts['selinux']['status'] | default('disabled') == 'enabled'
   tags: ssh
 
 - name: Choose between ssh.socket and the plain SSH service
-  ansible.builtin.include_tasks: socket.yml
+  ansible.builtin.import_tasks: socket.yml
   when: ansible_facts['service_mgr'] == 'systemd'
   tags: ssh
 
@@ -110,24 +110,43 @@
   when: not (openssh_socket_activated | default(false))
   tags: ssh
 
+# An OpenSSH banner, not any listener: another service on ssh_port must not end the migration early.
 - name: Check whether sshd already answers on ssh_port
   ansible.builtin.wait_for:
     host: 127.0.0.1
     port: "{{ ssh_port }}"
+    search_regex: '^SSH-2\.0-OpenSSH'
     timeout: 2
   register: ssh_port_probe
+  check_mode: false
   failed_when: false
-  when: ssh_port_migration
+  when: ssh_port_migration | bool
+  tags: ssh
+
+- name: Find the port the current connection uses
+  ansible.builtin.import_tasks: connection_port.yml
+  when: ssh_port_migration | bool
   tags: ssh
 
 - name: Move sshd to ssh_port in two stages
-  ansible.builtin.include_tasks: port_migration.yml
+  ansible.builtin.import_tasks: port_migration.yml
   when:
-    - ssh_port_migration
+    - ssh_port_migration | bool
     - ssh_port_probe.msg is defined
   tags: ssh
 
+# A rerun after an interrupted stage B: sshd answers on both ports and this connection uses the old one.
+- name: Finish an interrupted migration
+  ansible.builtin.import_tasks: stage_b.yml
+  when:
+    - ssh_port_migration | bool
+    - ssh_port_probe.msg is not defined
+    - openssh_connection_port | int != ssh_port | int
+  tags: ssh
+
 - name: Write the SSH server configuration
-  ansible.builtin.include_tasks: config.yml
-  when: not (ssh_port_migration and ssh_port_probe.msg is defined)
+  ansible.builtin.import_tasks: config.yml
+  when: >-
+    not (ssh_port_migration | bool)
+    or (ssh_port_probe.msg is not defined and openssh_connection_port | int == ssh_port | int)
   tags: ssh

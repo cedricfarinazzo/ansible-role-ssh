@@ -2,9 +2,11 @@
 # SSH role defaults
 
 # Package and service management
-ssh_package: openssh-server
+# Per OS family by default (vars/<os_family>.yml); override here.
+ssh_package: "{{ openssh_package }}"
 ssh_package_state: present
-ssh_service_name: sshd
+ssh_service_name: "{{ openssh_service_name }}"
+ssh_selinux_packages: "{{ openssh_selinux_packages }}"
 ssh_service_state: started
 ssh_service_enabled: true
 # Ubuntu 22.10+ only: false replaces ssh.socket with the plain service; true keeps the socket
@@ -92,23 +94,23 @@ ssh_debian_banner: false
 ssh_accept_env: "LANG LC_*"
 
 # User restrictions
-ssh_allow_users:
-  - infra
+# Empty: no AllowUsers line
+ssh_allow_users: []
 
 # Authorized keys management
 ssh_authorized_keys: []
 
 # Cryptography: computed from the installed OpenSSH version (vars/main.yml); override any list here.
 ssh_kex_post_quantum_only: false
-ssh_kex_algorithms: "{{ openssh_kex_available | select('match', '^(mlkem|sntrup)' if ssh_kex_post_quantum_only else '.') | list }}"
+ssh_kex_algorithms: "{{ openssh_kex_available | select('match', '^(mlkem|sntrup)' if ssh_kex_post_quantum_only | bool else '.') | list }}"
 ssh_ciphers: "{{ openssh_ciphers_available }}"
 ssh_macs: "{{ openssh_macs_available }}"
 ssh_host_key_algorithms: "{{ openssh_host_key_algorithms_available }}"
 # Accept FIDO ECDSA keys (sk-ecdsa), for authenticators that cannot make ed25519-sk keys
 ssh_pubkey_accept_sk_ecdsa: false
-ssh_pubkey_accepted_algorithms: "{{ openssh_host_key_algorithms_available + (openssh_sk_ecdsa_available if ssh_pubkey_accept_sk_ecdsa else []) }}"
+ssh_pubkey_accepted_algorithms: "{{ openssh_host_key_algorithms_available + (openssh_sk_ecdsa_available if ssh_pubkey_accept_sk_ecdsa | bool else []) }}"
 ssh_hostbased_accepted_algorithms: "{{ openssh_host_key_algorithms_available }}"
-ssh_ca_signature_algorithms: "{{ openssh_ca_signature_available + (openssh_sk_ecdsa_available | reject('search', 'cert') | list if ssh_pubkey_accept_sk_ecdsa else []) }}"
+ssh_ca_signature_algorithms: "{{ openssh_ca_signature_available + (openssh_sk_ecdsa_available | reject('search', 'cert') | list if ssh_pubkey_accept_sk_ecdsa | bool else []) }}"
 ssh_gssapi_kex_algorithms: "{{ openssh_gssapi_kex_algorithms }}"
 ssh_required_rsa_size: 4096
 # Drop Diffie-Hellman group-exchange moduli below this size from /etc/ssh/moduli; 0 keeps the file as is

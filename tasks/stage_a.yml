@@ -1,0 +1,50 @@
+---
+# The old port stays a way in until a login on ssh_port is proven; any failure restores the previous config.
+- name: Listen on ssh_port next to ssh_port_migration_from
+  block:
+    - name: Keep the sshd_config that works today
+      ansible.builtin.copy:
+        src: /etc/ssh/sshd_config
+        dest: /etc/ssh/sshd_config.pre-port-migration
+        remote_src: true
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Write the configuration with both ports
+      ansible.builtin.import_tasks: config.yml
+      vars:
+        openssh_extra_listen_ports: ["{{ ssh_port_migration_from }}"]
+
+    - name: Restart sshd on both ports
+      ansible.builtin.meta: flush_handlers
+
+    - name: Log in on ssh_port
+      ansible.builtin.import_tasks: use_port.yml
+      vars:
+        openssh_target_port: "{{ ssh_port }}"
+
+  rescue:
+    - name: Go back to ssh_port_migration_from
+      ansible.builtin.set_fact:
+        ansible_port: "{{ ssh_port_migration_from }}"
+        ansible_ssh_port: "{{ ssh_port_migration_from }}"
+
+    - name: Reopen the connection on the old port
+      ansible.builtin.meta: reset_connection
+
+    - name: Put the working sshd_config back
+      ansible.builtin.copy:
+        src: /etc/ssh/sshd_config.pre-port-migration
+        dest: /etc/ssh/sshd_config
+        remote_src: true
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Restart sshd on the old configuration
+      ansible.builtin.import_tasks: restart.yml
+
+    - name: Stop the migration
+      ansible.builtin.fail:
+        msg: "sshd did not answer on port {{ ssh_port }}; the previous sshd_config is back on port {{ ssh_port_migration_from }}"

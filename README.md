@@ -36,13 +36,13 @@ The role will automatically:
 
 ### Supported Distributions
 
-Each is tested in CI with Molecule:
+Each is tested in CI with Molecule; the port migration is also tested over real SSH (`tests/migration/run.sh`). The oldest OpenSSH the role accepts is 8.9.
 
 | Distribution | Versions | OpenSSH |
 |--------------|----------|---------|
 | **Debian** | 12, 13 | 9.2, 10.0 |
 | **Ubuntu** | 22.04, 24.04, 26.04 | 8.9, 9.6, 10.2 |
-| **Rocky Linux / RHEL family** | 9, 10 | 9.9 (EL 9 rebased from 8.7), 9.9 |
+| **Rocky Linux / RHEL family** | 9, 10 | 9.9, 9.9 |
 
 The role reads the installed OpenSSH version from the package database and loads the algorithm set for it, so the crypto follows OpenSSH, not the distribution name.
 
@@ -62,9 +62,9 @@ The role uses secure defaults but can be customized through these variables:
 #### SSH Service Configuration
 ```yaml
 # Package and service management
-ssh_package: openssh-server           # Package name
+ssh_package: openssh-server           # Package name (per OS family by default)
 ssh_package_state: present           # Package state
-ssh_service_name: sshd               # Service name (auto-detected)
+ssh_service_name: ssh                # Service name (per OS family: ssh on Debian/Ubuntu, sshd on EL)
 ssh_service_state: started           # Service state
 ssh_service_enabled: true            # Enable on boot
 ssh_socket_activation: false         # Ubuntu 22.10+: keep ssh.socket (true) or use the plain service
@@ -139,8 +139,7 @@ ssh_permit_user_environment: false
 ssh_compression: false               # Off: OpenSSH 10.6 disabled its dictionaries after a plaintext-recovery attack
 
 # User restrictions
-ssh_allow_users:                     # Allowed users (empty list: no AllowUsers line)
-  - infra
+ssh_allow_users: []                  # Allowed users (empty list: no AllowUsers line)
 
 # Authorized keys
 ssh_authorized_keys_file: .ssh/authorized_keys  # authorized_keys2 is deprecated upstream
@@ -212,8 +211,10 @@ ssh_moduli_minimum: 3072              # 0 leaves /etc/ssh/moduli untouched
 
 With `ssh_port_migration: true`, when sshd does not answer on `ssh_port` yet the role moves it in two stages:
 
-1. **Stage A:** sshd listens on `ssh_port` **and** `ssh_port_migration_from`, then Ansible reconnects on `ssh_port` and proves a login (`wait_for_connection`). If that fails, the previous `sshd_config` is restored on the old port and the play stops.
-2. **Stage B:** the old port is dropped and the login is proven again. If that fails, the two-port configuration from stage A is restored.
+1. **Stage A:** sshd listens on `ssh_port` **and** `ssh_port_migration_from`, then Ansible reconnects on `ssh_port`, proves a login (`wait_for_connection`) and checks the session really uses `ssh_port`. If any of that fails, the previous `sshd_config` is restored on the old port and the play stops.
+2. **Stage B:** the login on `ssh_port` is proven again and the controller sees an OpenSSH banner there; only then is the old port dropped, and the login is proven once more. If sshd refuses the final configuration, the two-port configuration is restored. A login that breaks after the old port is gone cannot be rolled back from Ansible: that is why stage B needs the proofs first.
+
+"sshd already answers on `ssh_port`" means an OpenSSH banner there, not just an open port. A rerun after an interrupted stage B (sshd on both ports, connection on the old one) runs stage B only. The session port is read on the target (`SSH_CONNECTION`), so `ansible_port` and `ansible_ssh_port` cannot disagree silently; the role sets both. Do not pin the old port with `-e ansible_port=…` (extra vars beat the role).
 
 A run on a host already answering on `ssh_port` is a normal run. The role does not touch the firewall: open `ssh_port` before the play.
 

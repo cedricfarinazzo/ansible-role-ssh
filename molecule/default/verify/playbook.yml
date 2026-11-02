@@ -59,6 +59,8 @@
           - sshd_t['macs'] == ssh_macs | join(',')
           - sshd_t['hostkeyalgorithms'] == ssh_host_key_algorithms | join(',')
           - sshd_t['pubkeyacceptedalgorithms'] == ssh_pubkey_accepted_algorithms | join(',')
+          - sshd_t['hostbasedacceptedalgorithms'] == ssh_hostbased_accepted_algorithms | join(',')
+          - sshd_t['casignaturealgorithms'] == ssh_ca_signature_algorithms | join(',')
           - "'ecdsa' not in sshd_t['pubkeyacceptedalgorithms']"
           - "'diffie-hellman' not in sshd_t['kexalgorithms'] or openssh_version is version('10.0', '<')"
           - "'mlkem768x25519-sha256' in sshd_t['kexalgorithms'] or openssh_version is version('9.9', '<')"
@@ -85,9 +87,16 @@
       register: weak_moduli
       changed_when: false
 
-    - name: Verify no modulus below 3072 bits is left
+    - name: Count the moduli of at least 3072 bits
+      ansible.builtin.command: awk '!/^#/ && NF >= 7 && $5 >= 3071' /etc/ssh/moduli
+      register: strong_moduli
+      changed_when: false
+
+    - name: Verify no modulus below 3072 bits is left, and some remain
       ansible.builtin.assert:
-        that: weak_moduli.stdout_lines | length == 0
+        that:
+          - weak_moduli.stdout_lines | length == 0
+          - strong_moduli.stdout_lines | length > 0
         fail_msg: "{{ weak_moduli.stdout_lines | length }} moduli below 3072 bits remain"
 
     - name: Check if custom SSH port is configured
@@ -197,7 +206,7 @@
         ssh_audit_json: "{{ ssh_audit_json_result.stdout | from_json }}"
       when: ssh_audit_json_result.rc in [0, 2]
 
-    - name: Verify no critical or high severity findings
+    - name: Verify ssh-audit produced a JSON report of this server
       ansible.builtin.assert:
         that:
           - ssh_audit_json_result.rc in [0, 2]

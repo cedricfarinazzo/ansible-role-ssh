@@ -9,23 +9,3 @@
     backup: true
     validate: /usr/sbin/sshd -t -f %s
   notify: Restart SSH service
-
-# A rerun after a migration may still hold a connection on the old port, which this config closes.
-- name: Reconnect on ssh_port
-  when:
-    - ssh_port_migration
-    - (ansible_port | default(22)) | int != ssh_port | int
-  block:
-    - name: Use ssh_port for the next connections
-      ansible.builtin.set_fact:
-        ansible_port: "{{ ssh_port }}"
-
-    - name: Restart sshd before reconnecting
-      ansible.builtin.meta: flush_handlers
-
-    - name: Reopen the connection on ssh_port
-      ansible.builtin.meta: reset_connection
-
-    - name: Prove the login works on ssh_port
-      ansible.builtin.wait_for_connection:
-        timeout: "{{ ssh_port_migration_timeout }}"

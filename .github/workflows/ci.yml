@@ -46,3 +46,26 @@ jobs:
           cache-dependency-path: requirements-dev.txt
       - name: Run the molecule scenario on ${{ matrix.distro }}
         run: ./run-tests.sh ${{ matrix.distro }}
+
+  # Molecule's docker connection ignores ansible_port: the port migration is tested over real SSH.
+  migration:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {distro: debian13, args: ""}
+          - {distro: rockylinux9, args: ""}
+          - {distro: ubuntu2404, args: ""}
+          - {distro: ubuntu2404, args: "-e ssh_socket_activation=true"}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+      - run: ansible-galaxy collection install -r requirements.yml
+      - name: Port migration over SSH on ${{ matrix.distro }} ${{ matrix.args }}
+        run: tests/migration/run.sh ${{ matrix.distro }} ${{ matrix.args }}

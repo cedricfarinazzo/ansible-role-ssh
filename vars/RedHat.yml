@@ -1,6 +1,6 @@
 ---
 # OS-family variables for RHEL, Rocky, AlmaLinux
-ssh_package: openssh-server
-ssh_service_name: sshd
-ssh_selinux_packages:
+openssh_package: openssh-server
+openssh_service_name: sshd
+openssh_selinux_packages:
   - policycoreutils-python-utils

@@ -1,7 +1,7 @@
 ---
 # Algorithms the role may offer, with the OpenSSH version range that knows them (min inclusive,
 # until exclusive). sshd -t rejects an unknown name, so every entry carries its real minimum.
-openssh_minimum_version: "8.7"
+openssh_minimum_version: "8.9"
 
 openssh_kex_candidates:
   - {name: mlkem768x25519-sha256, min: "9.9", until: "99"}
@@ -67,3 +67,6 @@ openssh_ca_signature_available: "{{ openssh_ca_signature_candidates | selectattr
 openssh_supports_required_rsa_size: "{{ openssh_version is version('9.1', '>=') }}"
 openssh_supports_connection_timeouts: "{{ openssh_version is version('9.2', '>=') }}"
 openssh_supports_per_source_penalties: "{{ openssh_version is version('9.8', '>=') }}"
+
+# Connection plugins over which ansible_port selects the sshd port.
+openssh_ssh_connection_plugins: [ssh, smart, paramiko, ansible.builtin.ssh, ansible.legacy.ssh, ansible.builtin.paramiko_ssh]

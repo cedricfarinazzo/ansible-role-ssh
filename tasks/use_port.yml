@@ -1,0 +1,28 @@
+---
+# Both names: the ssh connection plugin reads ansible_port and ansible_ssh_port, the last defined winning.
+- name: Connect on port {{ openssh_target_port }}
+  ansible.builtin.set_fact:
+    ansible_port: "{{ openssh_target_port }}"
+    ansible_ssh_port: "{{ openssh_target_port }}"
+
+- name: Reopen the connection on port {{ openssh_target_port }}
+  ansible.builtin.meta: reset_connection
+
+- name: Prove the login works on port {{ openssh_target_port }}
+  ansible.builtin.wait_for_connection:
+    timeout: "{{ ssh_port_migration_timeout }}"
+
+- name: Read the port the new connection really uses
+  ansible.builtin.command: printenv SSH_CONNECTION
+  become: false
+  check_mode: false
+  register: openssh_stage_connection
+  changed_when: false
+  when: ansible_connection | default('ssh') in openssh_ssh_connection_plugins
+
+- name: Fail unless the login went through port {{ openssh_target_port }}
+  ansible.builtin.assert:
+    that: openssh_stage_connection.stdout.split()[3] | int == openssh_target_port | int
+    fail_msg: "Connected on {{ openssh_stage_connection.stdout.split()[3] }}, not {{ openssh_target_port }}"
+    quiet: true
+  when: ansible_connection | default('ssh') in openssh_ssh_connection_plugins

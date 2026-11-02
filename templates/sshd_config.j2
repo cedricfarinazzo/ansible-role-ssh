@@ -1,7 +1,7 @@
 # {{ ansible_managed }}
 # sshd_config(5). sshd keeps the first value it reads for each directive.
 
-{% if ssh_include_config_dir %}
+{% if ssh_include_config_dir | bool %}
 Include {{ ssh_config_dir }}/*.conf
 
 {% endif %}
@@ -35,36 +35,36 @@ LogLevel {{ ssh_log_level }}
 # Authentication
 LoginGraceTime {{ ssh_login_grace_time }}
 PermitRootLogin {{ ssh_permit_root_login }}
-StrictModes {{ ssh_strict_modes | ternary('yes', 'no') }}
+StrictModes {{ ssh_strict_modes | bool | ternary('yes', 'no') }}
 MaxAuthTries {{ ssh_max_auth_tries }}
 MaxSessions {{ ssh_max_sessions }}
-PubkeyAuthentication {{ ssh_pubkey_authentication | ternary('yes', 'no') }}
+PubkeyAuthentication {{ ssh_pubkey_authentication | bool | ternary('yes', 'no') }}
 AuthorizedKeysFile {{ ssh_authorized_keys_file }}
-HostbasedAuthentication {{ ssh_hostbased_authentication | ternary('yes', 'no') }}
-IgnoreRhosts {{ ssh_ignore_rhosts | ternary('yes', 'no') }}
-PasswordAuthentication {{ ssh_password_authentication | ternary('yes', 'no') }}
-PermitEmptyPasswords {{ ssh_permit_empty_passwords | ternary('yes', 'no') }}
-KbdInteractiveAuthentication {{ ssh_kbd_interactive_authentication | ternary('yes', 'no') }}
-KerberosAuthentication {{ ssh_kerberos_authentication | ternary('yes', 'no') }}
-GSSAPIAuthentication {{ ssh_gssapi_authentication | ternary('yes', 'no') }}
+HostbasedAuthentication {{ ssh_hostbased_authentication | bool | ternary('yes', 'no') }}
+IgnoreRhosts {{ ssh_ignore_rhosts | bool | ternary('yes', 'no') }}
+PasswordAuthentication {{ ssh_password_authentication | bool | ternary('yes', 'no') }}
+PermitEmptyPasswords {{ ssh_permit_empty_passwords | bool | ternary('yes', 'no') }}
+KbdInteractiveAuthentication {{ ssh_kbd_interactive_authentication | bool | ternary('yes', 'no') }}
+KerberosAuthentication {{ ssh_kerberos_authentication | bool | ternary('yes', 'no') }}
+GSSAPIAuthentication {{ ssh_gssapi_authentication | bool | ternary('yes', 'no') }}
 {% if ssh_authentication_methods %}
 AuthenticationMethods {{ ssh_authentication_methods }}
 {% endif %}
-UsePAM {{ ssh_use_pam | ternary('yes', 'no') }}
+UsePAM {{ ssh_use_pam | bool | ternary('yes', 'no') }}
 {% if ssh_allow_users | length > 0 %}
 AllowUsers {{ ssh_allow_users | join(' ') }}
 {% endif %}
 
 # Forwarding and session features
-AllowAgentForwarding {{ ssh_allow_agent_forwarding | ternary('yes', 'no') }}
-AllowTcpForwarding {{ ssh_allow_tcp_forwarding | ternary('yes', 'no') }}
-AllowStreamLocalForwarding {{ ssh_allow_stream_local_forwarding | ternary('yes', 'no') }}
-GatewayPorts {{ ssh_gateway_ports | ternary('yes', 'no') }}
-PermitTunnel {{ ssh_permit_tunnel | ternary('yes', 'no') }}
-X11Forwarding {{ ssh_x11_forwarding | ternary('yes', 'no') }}
-PermitUserEnvironment {{ ssh_permit_user_environment | ternary('yes', 'no') }}
-PrintMotd {{ ssh_print_motd | ternary('yes', 'no') }}
-Compression {{ ssh_compression | ternary('yes', 'no') }}
+AllowAgentForwarding {{ ssh_allow_agent_forwarding | bool | ternary('yes', 'no') }}
+AllowTcpForwarding {{ ssh_allow_tcp_forwarding | bool | ternary('yes', 'no') }}
+AllowStreamLocalForwarding {{ ssh_allow_stream_local_forwarding | bool | ternary('yes', 'no') }}
+GatewayPorts {{ ssh_gateway_ports | bool | ternary('yes', 'no') }}
+PermitTunnel {{ ssh_permit_tunnel | bool | ternary('yes', 'no') }}
+X11Forwarding {{ ssh_x11_forwarding | bool | ternary('yes', 'no') }}
+PermitUserEnvironment {{ ssh_permit_user_environment | bool | ternary('yes', 'no') }}
+PrintMotd {{ ssh_print_motd | bool | ternary('yes', 'no') }}
+Compression {{ ssh_compression | bool | ternary('yes', 'no') }}
 AcceptEnv {{ ssh_accept_env }}
 
 # Connections
@@ -94,7 +94,7 @@ ChannelTimeout {{ ssh_channel_timeout }}
 Banner {{ ssh_banner }}
 {% if ansible_facts['os_family'] == 'Debian' %}
 # Debian-patched builds only; sshd elsewhere rejects the keyword
-DebianBanner {{ ssh_debian_banner | ternary('yes', 'no') }}
+DebianBanner {{ ssh_debian_banner | bool | ternary('yes', 'no') }}
 {% endif %}
 {% if ssh_subsystem_sftp %}
 

@@ -1,4 +1,11 @@
 ---
+# /etc/ssh/moduli tops out at 8192 bits; above that the filter would empty it.
+- name: Check the moduli minimum
+  ansible.builtin.assert:
+    that: ssh_moduli_minimum | int <= 8192
+    fail_msg: "ssh_moduli_minimum {{ ssh_moduli_minimum }} is above 8192, the largest modulus shipped"
+    quiet: true
+
 - name: Read the Diffie-Hellman moduli
   ansible.builtin.slurp:
     src: /etc/ssh/moduli

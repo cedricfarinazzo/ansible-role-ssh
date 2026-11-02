@@ -12,7 +12,7 @@
 
 - name: Record whether the role keeps socket activation
   ansible.builtin.set_fact:
-    openssh_socket_activated: "{{ openssh_socket_enabled and ssh_socket_activation }}"
+    openssh_socket_activated: "{{ openssh_socket_enabled and (ssh_socket_activation | bool) }}"
 
 - name: Stop socket activation in favour of the SSH service
   ansible.builtin.systemd_service:
@@ -21,4 +21,4 @@
     enabled: false
   when:
     - openssh_socket_enabled
-    - not ssh_socket_activation
+    - not (ssh_socket_activation | bool)

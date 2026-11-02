@@ -4,6 +4,7 @@
   ansible.builtin.wait_for:
     host: "{{ ansible_host | default(inventory_hostname) }}"
     port: "{{ ssh_port }}"
+    search_regex: '^SSH-2\.0-OpenSSH'
     timeout: "{{ ssh_port_probe_timeout }}"
   delegate_to: localhost
   become: false
@@ -14,4 +15,5 @@
 - name: Connect on ssh_port_migration_from while sshd is still there
   ansible.builtin.set_fact:
     ansible_port: "{{ ssh_port_migration_from }}"
+    ansible_ssh_port: "{{ ssh_port_migration_from }}"
   when: ssh_port_controller_probe.msg is defined
