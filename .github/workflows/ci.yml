@@ -30,7 +30,12 @@ jobs:
       matrix:
         distro:
           - debian12
+          - debian13
+          - ubuntu2204
           - ubuntu2404
+          - ubuntu2604
+          - rockylinux9
+          - rockylinux10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # ansible-core in requirements-dev.txt needs Python 3.13+

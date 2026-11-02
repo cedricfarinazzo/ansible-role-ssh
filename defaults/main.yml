@@ -7,6 +7,9 @@ ssh_package_state: present
 ssh_service_name: sshd
 ssh_service_state: started
 ssh_service_enabled: true
+# Ubuntu 22.10+ only: false replaces ssh.socket with the plain service; true keeps the socket
+# and restarts it (after a systemd daemon-reload) when the configuration changes.
+ssh_socket_activation: false
 
 # SSH port configuration
 ssh_port: 22

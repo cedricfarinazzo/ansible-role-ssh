@@ -9,11 +9,11 @@ function show_usage() {
     echo
     echo "Arguments:"
     echo "  DISTRO    Distribution to test with (default: debian12)"
-    echo "            Supported: debian12, ubuntu2404"
+    echo "            Supported: debian12, debian13, ubuntu2204, ubuntu2404, ubuntu2604, rockylinux9, rockylinux10"
     echo
     echo "Examples:"
-    echo "  $0              # Test with Debian 11"
-    echo "  $0 ubuntu2004   # Test with Ubuntu 20.04"
+    echo "  $0              # Test with Debian 12"
+    echo "  $0 ubuntu2204   # Test with Ubuntu 22.04"
     echo
 }
 

@@ -112,7 +112,10 @@ MaxStartups {{ ssh_max_startups }}
 
 # no default banner path
 Banner {{ ssh_banner }}
+{% if ansible_facts['os_family'] == 'Debian' %}
+# Debian-patched builds only; sshd elsewhere rejects the keyword
 DebianBanner {{ ssh_debian_banner | ternary('yes', 'no') }}
+{% endif %}
 
 # Allow client to pass locale environment variables
 AcceptEnv {{ ssh_accept_env }}

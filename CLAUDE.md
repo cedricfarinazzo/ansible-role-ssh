@@ -37,7 +37,7 @@ Public Ansible role `cedricfarinazzo.ssh` (Ansible Galaxy): installs OpenSSH ser
 
 ## Supported platforms
 
-The CI matrix in `.github/workflows/ci.yml` is the tested set; every job blocks.
+`meta/main.yml` `platforms`, the CI matrix in `.github/workflows/ci.yml`, the `README.md` table and `run-tests.sh --help` list the same set. End-of-life releases are dropped (a `feat!:` change), not kept as non-blocking jobs.
 
 ### Adding a platform — checklist
 

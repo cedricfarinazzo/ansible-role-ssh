@@ -30,25 +30,13 @@
         fail_msg: "SSH configuration file does not exist"
         success_msg: "SSH configuration file exists"
 
-    - name: Detect SSH version for verification
-      ansible.builtin.shell: ssh -V 2>&1 | head -1 | sed 's/.*OpenSSH_\([0-9]\+\.[0-9]\+\).*/\1/'
-      register: openssh_version_raw
-      changed_when: false
+    - name: Load the role's OpenSSH version bands
+      ansible.builtin.include_vars: ../../../vars/main.yml
 
-    - name: Set SSH version fact
-      ansible.builtin.set_fact:
-        openssh_version: "{{ openssh_version_raw.stdout | float }}"
-
-    - name: Determine OpenSSH configuration version for verification
-      ansible.builtin.set_fact:
-        openssh_config_version: >-
-          {%- if openssh_version_raw.stdout | float >= 9.6 -%}
-          9.6
-          {%- elif openssh_version_raw.stdout | float >= 9.2 -%}
-          9.2
-          {%- else -%}
-          8.2
-          {%- endif -%}
+    - name: Detect the OpenSSH version the way the role does
+      ansible.builtin.include_tasks: ../../../tasks/openssh_version.yml
+      vars:
+        ssh_package: openssh-server
 
     - name: Include OpenSSH version-specific algorithm variables for verification
       ansible.builtin.include_vars: "../../../vars/openssh-{{ openssh_config_version }}.yml"

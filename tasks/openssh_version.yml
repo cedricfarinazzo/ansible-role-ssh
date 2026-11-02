@@ -1,0 +1,19 @@
+---
+# The package version, not `ssh -V`: the client is not always installed (EL ships it apart).
+- name: Gather package facts
+  ansible.builtin.package_facts:
+    manager: auto
+
+- name: Set the OpenSSH version facts
+  ansible.builtin.set_fact:
+    openssh_version: "{{ ansible_facts['packages'][ssh_package][0]['version'] | regex_search('[0-9]+\\.[0-9]+') }}"
+
+- name: Pick the highest algorithm band not above the installed version
+  ansible.builtin.set_fact:
+    openssh_config_version: "{{ openssh_version_bands | select('version', openssh_version, '<=') | list | last | default('') }}"
+
+- name: Fail on an OpenSSH older than every band
+  ansible.builtin.assert:
+    that: openssh_config_version | length > 0
+    fail_msg: "OpenSSH {{ openssh_version }} is older than {{ openssh_version_bands | first }}, the oldest supported version"
+    quiet: true

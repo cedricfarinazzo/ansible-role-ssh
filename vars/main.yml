@@ -1,0 +1,6 @@
+---
+# Each entry has a vars/openssh-<band>.yml; ascending order.
+openssh_version_bands:
+  - "8.2"
+  - "9.2"
+  - "9.6"

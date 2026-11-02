@@ -29,15 +29,29 @@ The role will automatically:
 
 | Component | Requirement |
 |-----------|-------------|
-| **Operating System** | Linux (Debian/Ubuntu/RHEL/CentOS/Rocky) |
-| **Ansible** | Version 2.9+ |
-| **Python** | Python 3.8+ on target hosts |
+| **Operating System** | Debian, Ubuntu, RHEL family (see below) |
+| **Ansible** | ansible-core 2.15+ (CI tests the version pinned in `requirements-dev.txt`) |
+| **Collections** | `ansible.posix`, `community.general` (`requirements.yml`) |
 | **Privileges** | Root or sudo access on target hosts |
 
 ### Supported Distributions
 
-- ✅ **Debian** 11, 12
-- ✅ **Ubuntu** 20.04, 22.04, 24.04
+Each is tested in CI with Molecule:
+
+| Distribution | Versions | OpenSSH |
+|--------------|----------|---------|
+| **Debian** | 12, 13 | 9.2, 10.0 |
+| **Ubuntu** | 22.04, 24.04, 26.04 | 8.9, 9.6, 10.2 |
+| **Rocky Linux / RHEL family** | 9, 10 | 8.7, 9.9 |
+
+The role reads the installed OpenSSH version from the package database and loads the algorithm set for it, so the crypto follows OpenSSH, not the distribution name.
+
+#### Platform notes
+
+- **Ubuntu 22.10+ socket activation:** with `ssh_socket_activation: false` (default) the role disables `ssh.socket` and runs the plain `ssh` service, so `Port` is honoured directly. With `true` it keeps the socket and runs `systemctl daemon-reload` + restarts `ssh.socket` when the configuration changes.
+- **SELinux (RHEL family):** when SELinux is enabled the role installs `policycoreutils-python-utils` and labels `ssh_port` as `ssh_port_t`, so sshd can bind a non-default port.
+- **RHEL crypto-policies:** the role writes the full `sshd_config` without the `sshd_config.d` include (unless `ssh_include_config_dir: true`), so its algorithm lists apply instead of the system crypto policy.
+- `DebianBanner` is only written on Debian and Ubuntu, whose OpenSSH builds carry that patch.
 
 ## ⚙️ Configuration
 
@@ -53,6 +67,7 @@ ssh_package_state: present           # Package state
 ssh_service_name: sshd               # Service name (auto-detected)
 ssh_service_state: started           # Service state
 ssh_service_enabled: true            # Enable on boot
+ssh_socket_activation: false         # Ubuntu 22.10+: keep ssh.socket (true) or use the plain service
 
 # Network settings
 ssh_port: 22                         # SSH port

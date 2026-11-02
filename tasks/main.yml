@@ -1,6 +1,6 @@
 ---
 - name: Include OS-specific variables
-  ansible.builtin.include_vars: "{{ ansible_os_family }}.yml"
+  ansible.builtin.include_vars: "{{ ansible_facts['os_family'] }}.yml"
   tags: ssh
 
 - name: Install SSH server
@@ -9,26 +9,8 @@
     state: "{{ ssh_package_state }}"
   tags: ssh
 
-- name: Detect SSH version for algorithm compatibility
-  ansible.builtin.shell: |
-    set -o pipefail
-    ssh -V 2>&1 | head -1 | sed 's/.*OpenSSH_\([0-9]\+\.[0-9]\+\).*/\1/'
-  args:
-    executable: /bin/bash
-  register: openssh_version_raw
-  changed_when: false
-  tags: ssh
-
-- name: Set SSH version fact
-  ansible.builtin.set_fact:
-    openssh_version: "{{ openssh_version_raw.stdout | float }}"
-    openssh_version_string: "{{ openssh_version_raw.stdout }}"
-  tags: ssh
-
-- name: Determine OpenSSH configuration version to use based on detected version
-  ansible.builtin.set_fact:
-    openssh_config_version: >-
-      {%- if openssh_version_raw.stdout | float >= 9.6 -%}9.6{%- elif openssh_version_raw.stdout | float >= 9.2 -%}9.2{%- else -%}8.2{%- endif -%}
+- name: Detect the installed OpenSSH version
+  ansible.builtin.include_tasks: openssh_version.yml
   tags: ssh
 
 - name: Include OpenSSH version-specific SSH algorithm variables
@@ -101,6 +83,11 @@
   when: ssh_authorized_keys | length > 0
   tags: ssh
 
+- name: Manage the SELinux label of the SSH port
+  ansible.builtin.include_tasks: selinux.yml
+  when: ansible_facts['selinux']['status'] | default('disabled') == 'enabled'
+  tags: ssh
+
 - name: Generate SSH server configuration
   ansible.builtin.template:
     src: sshd_config.j2
@@ -118,9 +105,15 @@
   changed_when: false
   tags: ssh
 
+- name: Choose between ssh.socket and the plain SSH service
+  ansible.builtin.include_tasks: socket.yml
+  when: ansible_facts['service_mgr'] == 'systemd'
+  tags: ssh
+
 - name: Start and enable SSH service
   ansible.builtin.service:
     name: "{{ ssh_service_name }}"
     state: "{{ ssh_service_state }}"
     enabled: "{{ ssh_service_enabled }}"
+  when: not (openssh_socket_activated | default(false))
   tags: ssh
