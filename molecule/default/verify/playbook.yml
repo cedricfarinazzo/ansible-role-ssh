@@ -138,6 +138,19 @@
         fail_msg: "Password authentication is not disabled"
         success_msg: "Password authentication is disabled"
 
+    - name: Verify the port migration closed the old port
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: 22
+        state: stopped
+        timeout: 5
+
+    - name: Verify no stage-A config was left in place
+      ansible.builtin.command: grep -c '^Port ' /etc/ssh/sshd_config
+      register: port_lines
+      changed_when: false
+      failed_when: port_lines.stdout != '1'
+
     - name: Test SSH connection to configured port
       ansible.builtin.wait_for:
         host: "{{ ansible_facts['default_ipv4']['address'] }}"

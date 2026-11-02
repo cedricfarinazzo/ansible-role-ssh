@@ -5,7 +5,9 @@
 Include {{ ssh_config_dir }}/*.conf
 
 {% endif %}
-Port {{ ssh_port }}
+{% for port in [ssh_port] + openssh_extra_listen_ports | default([]) %}
+Port {{ port }}
+{% endfor %}
 
 {% for host_key in ssh_host_keys %}
 HostKey {{ host_key }}

@@ -13,6 +13,13 @@ ssh_socket_activation: false
 
 # SSH port configuration
 ssh_port: 22
+# Move sshd from ssh_port_migration_from to ssh_port in two stages, proving a login on the new
+# port before the old one closes. Open ssh_port in the firewall first.
+ssh_port_migration: false
+ssh_port_migration_from: 22
+ssh_port_migration_timeout: 30
+# Controller-side probe of tasks_from: port_probe.yml
+ssh_port_probe_timeout: 3
 
 # Host key configuration
 ssh_host_keys:

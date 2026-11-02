@@ -71,6 +71,10 @@ ssh_socket_activation: false         # Ubuntu 22.10+: keep ssh.socket (true) or 
 
 # Network settings
 ssh_port: 22                         # SSH port
+ssh_port_migration: false            # Two-stage move from ssh_port_migration_from (see below)
+ssh_port_migration_from: 22
+ssh_port_migration_timeout: 30       # Seconds to wait for a login on the new port
+ssh_port_probe_timeout: 3            # Controller probe in tasks_from: port_probe.yml
 ```
 
 #### Authentication Configuration
@@ -202,6 +206,37 @@ ssh_moduli_minimum: 3072              # 0 leaves /etc/ssh/moduli untouched
           - admin
           - developer
           - deploy
+```
+
+### Moving SSH to a new port without locking yourself out
+
+With `ssh_port_migration: true`, when sshd does not answer on `ssh_port` yet the role moves it in two stages:
+
+1. **Stage A:** sshd listens on `ssh_port` **and** `ssh_port_migration_from`, then Ansible reconnects on `ssh_port` and proves a login (`wait_for_connection`). If that fails, the previous `sshd_config` is restored on the old port and the play stops.
+2. **Stage B:** the old port is dropped and the login is proven again. If that fails, the two-port configuration from stage A is restored.
+
+A run on a host already answering on `ssh_port` is a normal run. The role does not touch the firewall: open `ssh_port` before the play.
+
+On the first contact the inventory already says the new port while sshd is still on the old one; `tasks_from: port_probe.yml` checks from the controller and connects on the old port while needed:
+
+```yaml
+- hosts: ssh_servers
+  become: true
+  gather_facts: false
+  vars:
+    ansible_port: 2222
+    ssh_port: 2222
+    ssh_port_migration: true
+    ssh_port_migration_from: 22
+  pre_tasks:
+    - name: Find the port sshd answers on
+      ansible.builtin.include_role:
+        name: cedricfarinazzo.ssh
+        tasks_from: port_probe.yml
+    - name: Gather facts
+      ansible.builtin.setup:
+  roles:
+    - cedricfarinazzo.ssh
 ```
 
 ### Authorized Keys Management

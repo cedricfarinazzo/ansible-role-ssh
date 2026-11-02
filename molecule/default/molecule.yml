@@ -23,6 +23,8 @@ provisioner:
     host_vars:
       instance:
         ssh_port: 12345
+        ssh_port_migration: true
+        ssh_port_migration_from: 22
 verifier:
   name: ansible
 scenario:

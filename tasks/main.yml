@@ -97,23 +97,6 @@
   when: ansible_facts['selinux']['status'] | default('disabled') == 'enabled'
   tags: ssh
 
-- name: Generate SSH server configuration
-  ansible.builtin.template:
-    src: sshd_config.j2
-    dest: /etc/ssh/sshd_config
-    owner: root
-    group: root
-    mode: '0644'
-    backup: true
-    validate: /usr/sbin/sshd -t -f %s
-  notify: Restart SSH service
-  tags: ssh
-
-- name: Validate SSH server configuration
-  ansible.builtin.command: /usr/sbin/sshd -t -f /etc/ssh/sshd_config
-  changed_when: false
-  tags: ssh
-
 - name: Choose between ssh.socket and the plain SSH service
   ansible.builtin.include_tasks: socket.yml
   when: ansible_facts['service_mgr'] == 'systemd'
@@ -125,4 +108,26 @@
     state: "{{ ssh_service_state }}"
     enabled: "{{ ssh_service_enabled }}"
   when: not (openssh_socket_activated | default(false))
+  tags: ssh
+
+- name: Check whether sshd already answers on ssh_port
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: "{{ ssh_port }}"
+    timeout: 2
+  register: ssh_port_probe
+  failed_when: false
+  when: ssh_port_migration
+  tags: ssh
+
+- name: Move sshd to ssh_port in two stages
+  ansible.builtin.include_tasks: port_migration.yml
+  when:
+    - ssh_port_migration
+    - ssh_port_probe.msg is defined
+  tags: ssh
+
+- name: Write the SSH server configuration
+  ansible.builtin.include_tasks: config.yml
+  when: not (ssh_port_migration and ssh_port_probe.msg is defined)
   tags: ssh

@@ -12,6 +12,7 @@ Public Ansible role `cedricfarinazzo.ssh` (Ansible Galaxy): installs OpenSSH ser
 - `vars/<os_family>.yml` — package and service names per OS family; loaded first.
 - `vars/main.yml` — every algorithm the role may offer, each with the OpenSSH range that knows it (`min` inclusive, `until` exclusive), the `openssh_*_available` lists filtered for the installed version, and `openssh_supports_*` flags for directives newer than `openssh_minimum_version`.
 - `tasks/openssh_version.yml` — reads the OpenSSH version from the package database into `openssh_version`; fails below `openssh_minimum_version`.
+- `tasks/port_migration.yml` / `port_probe.yml` — two-stage port move with rollback (stage A both ports + proven login, stage B old port dropped); controller-side first-contact probe. `config.yml` writes the template, `restart.yml` restarts outside handlers (rescues).
 - `tasks/main.yml` — install, version, host keys, moduli filter (`moduli.yml`), SELinux port (`selinux.yml`), authorized keys, template (validated with `sshd -t` before it replaces the live file), socket vs service (`socket.yml`), service.
 - `templates/sshd_config.j2` — the whole `sshd_config`; a directive newer than `openssh_minimum_version` sits behind an `openssh_supports_*` flag. `moduli.j2` rewrites `/etc/ssh/moduli`.
 - `handlers/main.yml` — restart the service.
@@ -70,5 +71,6 @@ Public Ansible role `cedricfarinazzo.ssh` (Ansible Galaxy): installs OpenSSH ser
 - `ssh-audit` exits 0 (clean), 1 (connection error), 2 (warnings), 3 (failures); its JSON flag is `--json`.
 - `sshd -t` rejects unknown directives and unknown algorithm names, so each is guarded by the OpenSSH version that introduced it.
 - sshd keeps the **first** value of a directive: `ssh_additional_config` (written last) cannot override one the template sets, and `Include` (written first, when enabled) overrides the role.
+- Molecule's docker connection ignores `ansible_port`: the scenario proves the listening ports, not the reconnect; test a real migration against a VM.
 - `/etc/ssh/moduli` field 5 is the size minus one (3071 for 3072 bits).
 - Ubuntu 22.10+ `ssh.socket`: a systemd generator derives the listeners from `sshd_config`; a port change needs `daemon-reload` + socket restart (handled by the handlers when `ssh_socket_activation: true`).
