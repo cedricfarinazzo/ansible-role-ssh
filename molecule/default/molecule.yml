@@ -25,25 +25,25 @@ provisioner:
         ssh_port: 12345
 verifier:
   name: ansible
-lint: |
-  set -e
-  yamllint .
-  ansible-lint
 scenario:
   name: default
   create_sequence:
+    - dependency
     - create
   check_sequence:
     - create
     - converge
     - check
   converge_sequence:
+    - dependency
     - create
     - prepare
     - converge
   destroy_sequence:
     - destroy
   test_sequence:
+    - dependency
+    - destroy
     - create
     - prepare
     - converge # install the role

@@ -48,32 +48,17 @@ if ! docker info &> /dev/null; then
     exit 1
 fi
 
-# Check if molecule is installed in the virtual environment
-if [ ! -f "${VENV_PATH}/bin/molecule" ]; then
-    echo -e "${YELLOW}Molecule virtual environment not found or not set up correctly.${NC}"
-    echo -e "Creating Python virtual environment and installing dependencies..."
-    
-    # Create virtual environment if it doesn't exist
-    if [ ! -d "${VENV_PATH}" ]; then
-        python3 -m venv "${VENV_PATH}"
-    fi
-    
-    # Install dependencies
-    "${VENV_PATH}/bin/pip" install molecule molecule-docker pytest-testinfra ansible ansible-lint
-    
-    if [ $? -ne 0 ]; then
-        echo -e "${RED}Failed to install molecule and dependencies.${NC}"
-        exit 1
-    fi
-
-    # Install required Ansible collections
-    echo -e "${YELLOW}Installing required Ansible collections...${NC}"
-    source "${VENV_PATH}/bin/activate" && ansible-galaxy collection install -r requirements.yml
-    
-    if [ $? -ne 0 ]; then
-        echo -e "${RED}Failed to install Ansible collections.${NC}"
-        exit 1
-    fi
+# Create the virtual environment once; install the pinned tooling every run so a pin bump lands
+if [ ! -d "${VENV_PATH}" ]; then
+    python3 -m venv "${VENV_PATH}"
+fi
+if ! "${VENV_PATH}/bin/pip" install --quiet -r requirements-dev.txt; then
+    echo -e "${RED}Failed to install the tooling from requirements-dev.txt.${NC}"
+    exit 1
+fi
+if ! "${VENV_PATH}/bin/ansible-galaxy" collection install -r requirements.yml; then
+    echo -e "${RED}Failed to install Ansible collections.${NC}"
+    exit 1
 fi
 
 # Display test information
@@ -88,8 +73,6 @@ docker pull geerlingguy/docker-${1:-debian11}-ansible:latest
 export MOLECULE_DISTRO=${1:-debian11}
 export MOLECULE_NO_LOG=false
 export MOLECULE_ROLE_NAME_CHECK=0
-# molecule-docker's create.yml has a non-boolean conditional that ansible-core 2.19+ rejects
-export ANSIBLE_ALLOW_BROKEN_CONDITIONALS=true
 
 echo -e "${YELLOW}Running molecule test with ${MOLECULE_DISTRO}...${NC}"
 
