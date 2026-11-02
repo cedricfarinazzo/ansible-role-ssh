@@ -25,6 +25,8 @@ provisioner:
         # The container runs as root; sudo there can fail on PAM (seen on EL 9 in CI)
         ansible_become: false
         ssh_port: 12345
+        # The controller audits from the docker bridge; OpenSSH 9.8+ would penalise the repeated audits
+        ssh_per_source_penalty_exempt_list: [172.16.0.0/12]
         ssh_port_migration: true
         ssh_port_migration_from: 22
 verifier:

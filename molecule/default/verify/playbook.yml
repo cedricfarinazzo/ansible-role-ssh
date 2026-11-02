@@ -81,6 +81,7 @@
           - sshd_t['ignorerhosts'] == 'yes'
           - sshd_t['maxstartups'] == '10:30:60'
           - sshd_t['authorizedkeysfile'] == '.ssh/authorized_keys'
+          - "sshd_t.get('persourcepenaltyexemptlist', '172.16.0.0/12') == '172.16.0.0/12'"
 
     - name: Read the moduli file
       ansible.builtin.command: awk '!/^#/ && NF >= 7 && $5 < 3071' /etc/ssh/moduli
@@ -172,48 +173,31 @@
         fail_msg: "SSH connection test failed - port 12345 is not accessible"
         success_msg: "SSH connection test successful - port 12345 is accessible"
 
-    # ssh-audit (requirements-dev.txt) runs on the controller: some targets' Python is too old for it
+    # ssh-audit (requirements-dev.txt) runs on the controller: some targets' Python is too old for it.
+    # One run only: OpenSSH 9.8+ PerSourcePenalties refuses a second audit from the same source.
     - name: Run ssh-audit from the controller against the configured port
-      ansible.builtin.command: "ssh-audit {{ ansible_facts['default_ipv4']['address'] }}:12345"
+      ansible.builtin.command: "ssh-audit --json {{ ansible_facts['default_ipv4']['address'] }}:12345"
       delegate_to: localhost
       become: false
       register: ssh_audit_result
       changed_when: false
       failed_when: false
 
-    - name: Display ssh-audit results
+    - name: Parse the ssh-audit report
+      ansible.builtin.set_fact:
+        ssh_audit_json: "{{ ssh_audit_result.stdout | from_json }}"
+
+    - name: Display the ssh-audit recommendations
       ansible.builtin.debug:
-        var: ssh_audit_result.stdout_lines
+        var: ssh_audit_json.recommendations
 
     # ssh-audit exits 0 (good), 1 (connection error), 2 (warnings only) or 3 (failures)
-    - name: Check ssh-audit exit code for critical issues
+    - name: Verify ssh-audit audited this server and found no failure
       ansible.builtin.assert:
         that:
           - ssh_audit_result.rc in [0, 2]
-        fail_msg: "ssh-audit found critical security issues. Exit code: {{ ssh_audit_result.rc }}. Check the output above for details."
-        success_msg: "ssh-audit security verification passed successfully"
-
-    - name: Run ssh-audit in JSON format for detailed analysis
-      ansible.builtin.command: "ssh-audit --json {{ ansible_facts['default_ipv4']['address'] }}:12345"
-      delegate_to: localhost
-      become: false
-      register: ssh_audit_json_result
-      changed_when: false
-      failed_when: false
-
-    - name: Parse ssh-audit JSON results
-      ansible.builtin.set_fact:
-        ssh_audit_json: "{{ ssh_audit_json_result.stdout | from_json }}"
-      when: ssh_audit_json_result.rc in [0, 2]
-
-    - name: Verify ssh-audit produced a JSON report of this server
-      ansible.builtin.assert:
-        that:
-          - ssh_audit_json_result.rc in [0, 2]
-          - ssh_audit_json.banner is defined
-          - ssh_audit_json.banner.software is defined
-        fail_msg: "ssh-audit JSON output is missing expected fields"
-        success_msg: "ssh-audit completed analysis successfully"
+          - ssh_audit_json.banner.software is not none
+        fail_msg: "ssh-audit exit code {{ ssh_audit_result.rc }}: {{ ssh_audit_json.recommendations | default({}) }}"
 
     - name: Check for weak algorithms (if any are reported)
       ansible.builtin.debug:

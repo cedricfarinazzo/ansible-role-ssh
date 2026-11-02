@@ -24,8 +24,21 @@ docker exec "$NAME" bash -c "
   chown tester: /home/tester/.ssh/authorized_keys && chmod 600 /home/tester/.ssh/authorized_keys
   echo 'tester ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/tester
   ssh-keygen -A >/dev/null
+  # The test reconnects from one address many times; OpenSSH 9.8+ would penalise it
+  if [ -d /etc/ssh/sshd_config.d ]; then echo 'PerSourcePenalties no' > /etc/ssh/sshd_config.d/00-test.conf; sshd -t 2>/dev/null || rm /etc/ssh/sshd_config.d/00-test.conf; fi
   systemctl enable --now ssh 2>/dev/null || systemctl enable --now sshd"
 IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$NAME")
+ready=0
+for _ in $(seq 30); do
+  if ssh -i "$WORK/key" -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=3 \
+    "tester@$IP" true 2>/dev/null; then ready=1; break; fi
+  sleep 2
+done
+if [[ $ready -ne 1 ]]; then
+  echo "FAIL sshd in the container never accepted the test key" >&2
+  docker exec "$NAME" journalctl -u ssh -u sshd --no-pager | tail -30 >&2 || true
+  exit 1
+fi
 
 ln -s "$ROOT" "$WORK/ansible-role-ssh"
 inventory() {
@@ -42,6 +55,7 @@ all:
       ssh_port_migration: true
       ssh_port_migration_from: $2
       ssh_allow_users: [tester]
+      ssh_per_source_penalty_exempt_list: [172.16.0.0/12]
 INV
 }
 play() { ANSIBLE_ROLES_PATH=$WORK ansible-playbook -i "$WORK/inventory.yml" "$ROOT/tests/migration/play.yml" "$@"; }
@@ -79,5 +93,6 @@ check "port 2222 closed" bash -c "! timeout 3 bash -c '</dev/tcp/$IP/2222' 2>/de
 
 if [[ $fails -gt 0 ]]; then
   for f in "$WORK"/run*.log; do echo "== $f"; tail -40 "$f"; done
+  docker exec "$NAME" journalctl -u ssh -u sshd --no-pager | tail -40 || true
 fi
 exit $((fails > 0))
