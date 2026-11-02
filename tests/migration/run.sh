@@ -41,7 +41,9 @@ for _ in $(seq 30); do
 done
 if [[ $ready -ne 1 ]]; then
   echo "FAIL sshd in the container never accepted the test key" >&2
-  docker exec "$NAME" bash -c 'systemctl is-system-running; ls -l /run/nologin /etc/nologin; chage -l tester; grep -v "^#" /etc/pam.d/sshd' >&2 || true
+  docker exec "$NAME" bash -c 'systemctl is-system-running; ls -l /run/nologin /etc/nologin /etc/shadow; getent shadow tester; chage -l tester
+    getenforce 2>/dev/null; grep -v "^#" /etc/pam.d/sshd; grep -v "^#" /etc/pam.d/password-auth 2>/dev/null; cat /etc/security/sepermit.conf 2>/dev/null | grep -v "^#"
+    grep -i pam /var/log/secure 2>/dev/null | tail -10; journalctl --no-pager -o cat SYSLOG_FACILITY=10 | grep -iv "^$" | tail -15' >&2 || true
   docker exec "$NAME" journalctl -u ssh -u sshd --no-pager | tail -10 >&2 || true
   exit 1
 fi
