@@ -72,7 +72,7 @@ Public Ansible role `cedricfarinazzo.ssh` (Ansible Galaxy): installs OpenSSH ser
 - `ssh-audit` exits 0 (clean), 1 (connection error), 2 (warnings), 3 (failures); its JSON flag is `--json`.
 - `sshd -t` rejects unknown directives and unknown algorithm names, so each is guarded by the OpenSSH version that introduced it.
 - sshd keeps the **first** value of a directive: `ssh_additional_config` (written last) cannot override one the template sets, and `Include` (written first, when enabled) overrides the role.
-- On GitHub runners the EL images lose the setuid bit of `unix_chkpwd`, so PAM account checks fail (sshd: 'Access denied … by PAM account configuration'; sudo: 'cannot retrieve authentication info'): the Molecule scenario runs without become, `tests/migration/run.sh` restores the bit.
+- On GitHub runners PAM account checks fail in the EL containers (`unix_chkpwd: could not obtain user info`, `/etc/shadow` is 0000 there; sshd: 'Access denied … by PAM account configuration', sudo: 'cannot retrieve authentication info'): the Molecule scenario runs without become, `tests/migration/run.sh` makes `/etc/shadow` owner-readable.
 - Molecule's docker connection ignores `ansible_port`: the scenario proves the listening ports, not the reconnect; test a real migration against a VM.
 - `/etc/ssh/moduli` field 5 is the size minus one (3071 for 3072 bits).
 - Ubuntu 22.10+ `ssh.socket`: a systemd generator derives the listeners from `sshd_config`; a port change needs `daemon-reload` + socket restart (handled by the handlers when `ssh_socket_activation: true`).

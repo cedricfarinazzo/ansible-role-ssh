@@ -30,8 +30,9 @@ docker exec "$NAME" bash -c "
   if [ -d /etc/ssh/sshd_config.d ]; then echo 'PerSourcePenalties no' > /etc/ssh/sshd_config.d/00-test.conf; sshd -t 2>/dev/null || rm /etc/ssh/sshd_config.d/00-test.conf; fi
   systemctl enable --now ssh 2>/dev/null || systemctl enable --now sshd
   # Clear a boot-time nologin, if any, so the first key login is not refused
-  # GitHub runners lose the setuid bit of pam_unix's helper: 'unix_chkpwd: could not obtain user info'
-  if [ -e /usr/sbin/unix_chkpwd ]; then chmod 4755 /usr/sbin/unix_chkpwd; fi
+  # EL ships /etc/shadow as 0000 (root reads it through CAP_DAC_OVERRIDE); on GitHub runners pam_unix then
+  # logs 'unix_chkpwd: could not obtain user info' and refuses the account. Owner-readable avoids the capability.
+  if [ "$(stat -c %a /etc/shadow)" = 0 ]; then chmod 0400 /etc/shadow; fi
   systemctl start systemd-user-sessions 2>/dev/null || true
   rm -f /run/nologin /etc/nologin"
 IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$NAME")
