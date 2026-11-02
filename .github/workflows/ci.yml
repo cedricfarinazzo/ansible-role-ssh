@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - run: pip install ansible ansible-lint yamllint
+      - run: ansible-galaxy collection install -r requirements.yml
+      - run: yamllint .
+      - run: ansible-lint
+
+  molecule:
+    runs-on: ubuntu-24.04
+    # debian11 and ubuntu2004 are end-of-life: apt can no longer fetch from the debian11 security pool, and
+    # ubuntu2004's Python 3.8 is too old for the current ansible-core on the target. They run but do not block.
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {distro: debian12, experimental: false}
+          - {distro: ubuntu2404, experimental: false}
+          - {distro: debian11, experimental: true}
+          - {distro: ubuntu2004, experimental: true}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Run the molecule scenario on ${{ matrix.distro }}
+        run: ./run-tests.sh ${{ matrix.distro }}
