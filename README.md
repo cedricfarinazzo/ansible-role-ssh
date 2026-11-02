@@ -71,7 +71,6 @@ ssh_socket_activation: false         # Ubuntu 22.10+: keep ssh.socket (true) or 
 
 # Network settings
 ssh_port: 22                         # SSH port
-ssh_protocol: 2                      # SSH protocol version
 ```
 
 #### Authentication Configuration
@@ -86,6 +85,9 @@ ssh_pubkey_authentication: true      # Enable public key authentication
 ssh_password_authentication: false   # Disable password authentication
 ssh_permit_empty_passwords: false    # Disable empty passwords
 ssh_kbd_interactive_authentication: false  # Disable keyboard-interactive auth
+ssh_hostbased_authentication: false  # Disable host-based auth
+ssh_ignore_rhosts: true              # Ignore .rhosts / .shosts
+ssh_authentication_methods: ""       # e.g. "publickey"; empty: sshd default
 
 # Kerberos and GSSAPI
 ssh_kerberos_authentication: false   # Disable Kerberos
@@ -106,6 +108,7 @@ ssh_generate_host_keys: true         # Generate host keys if missing
 ssh_host_key_types:                  # Key types to generate
   - rsa
   - ed25519
+ssh_host_key_rsa_bits: 4096          # Size of a generated RSA host key
 ```
 
 #### Security and Hardening
@@ -113,45 +116,68 @@ ssh_host_key_types:                  # Key types to generate
 # Connection settings
 ssh_client_alive_count_max: 3        # Max missed keepalive messages
 ssh_client_alive_interval: 120       # Keepalive interval in seconds
-ssh_max_startups: "10:30:100"        # Connection rate limiting
+ssh_max_startups: "10:30:60"         # Unauthenticated connection rate limiting
+ssh_per_source_max_startups: ""      # e.g. "10" (empty: sshd default)
+ssh_per_source_net_block_size: ""    # e.g. "32:128"
+ssh_per_source_penalties: ""         # OpenSSH 9.8+, empty keeps sshd's defaults (on)
+ssh_per_source_penalty_exempt_list: []  # OpenSSH 9.8+, e.g. your management network
+ssh_unused_connection_timeout: ""    # OpenSSH 9.2+, e.g. "5m"
+ssh_channel_timeout: ""              # OpenSSH 9.2+, e.g. "session=30m"
 
-# Forwarding settings
-ssh_allow_agent_forwarding: false    # Disable agent forwarding
-ssh_x11_forwarding: false           # Disable X11 forwarding
-ssh_compression: true                # Enable compression
+# Forwarding and session features (all off)
+ssh_allow_agent_forwarding: false
+ssh_allow_tcp_forwarding: false
+ssh_allow_stream_local_forwarding: false
+ssh_gateway_ports: false
+ssh_permit_tunnel: false
+ssh_x11_forwarding: false
+ssh_permit_user_environment: false
+ssh_compression: false               # Off: OpenSSH 10.6 disabled its dictionaries after a plaintext-recovery attack
 
 # User restrictions
-ssh_allow_users:                     # Allowed users
+ssh_allow_users:                     # Allowed users (empty list: no AllowUsers line)
   - infra
 
 # Authorized keys
-ssh_authorized_keys_file: .ssh/authorized_keys .ssh/authorized_keys2  # Location of authorized keys file
+ssh_authorized_keys_file: .ssh/authorized_keys  # authorized_keys2 is deprecated upstream
 ssh_authorized_keys: []               # List of authorized keys to manage
+
+# Logging
+ssh_syslog_facility: AUTH
+ssh_log_level: VERBOSE                # Logs the fingerprint of the key used at each login
 
 # Additional settings
 ssh_subsystem_sftp: ""                # SFTP server command, e.g. /usr/lib/openssh/sftp-server (empty: no Subsystem line)
-ssh_print_motd: false                 # Print message of the day
+ssh_print_motd: false
 ssh_banner: none                      # SSH banner file path
-ssh_debian_banner: false              # Enable Debian banner
-ssh_accept_env: "LANG LC_*"           # Environment variables to accept
-ssh_syslog_facility: AUTH             # Syslog facility for SSH messages
+ssh_debian_banner: false              # Debian/Ubuntu only
+ssh_accept_env: "LANG LC_*"
+ssh_additional_config: []             # Raw lines written last (Match blocks); cannot override a directive set above
+ssh_include_config_dir: false         # Include sshd_config.d/*.conf first: drop-ins then win over the role
 ```
 
 #### Cryptographic Algorithms
-The role includes hardened cryptographic settings based on [SSH Audit hardening guides](https://www.ssh-audit.com/hardening_guides.html):
 
-Cryptographic algorithm values are automatically configured per operating system through dedicated variable files in `vars/` directory:
+The algorithm lists follow the [ssh-audit hardening guides](https://www.ssh-audit.com/hardening_guides.html) and are computed from the installed OpenSSH version: `vars/main.yml` lists every algorithm the role may offer with the OpenSSH version range that knows it, and the role keeps those the installed version supports (`sshd -t` rejects an unknown name).
 
-- `vars/openssh-8.2.yml` - Compatible with Ubuntu 20.04 (8.2), Debian 11 (8.4)
-- `vars/openssh-9.2.yml` - Compatible with Debian 12 (9.2) 
-- `vars/openssh-9.6.yml` - Compatible with Ubuntu 24.04 (9.6)
+| What | Default |
+|------|---------|
+| Key exchange | `mlkem768x25519-sha256` and `sntrup761x25519-sha512` (OpenSSH 9.9+), `sntrup761x25519-sha512@openssh.com`, `curve25519-sha256`; finite-field DH (`group16`, `group18`, `group-exchange-sha256`) only below OpenSSH 10.0, which disables it by default |
+| Ciphers | `chacha20-poly1305`, AES-GCM, AES-CTR |
+| MACs | encrypt-then-MAC only: `hmac-sha2-512-etm`, `hmac-sha2-256-etm`, `umac-128-etm` |
+| Host keys / user keys | Ed25519, FIDO Ed25519 (`sk-ssh-ed25519`), RSA-SHA2, with their certificates; no ECDSA |
+| DH moduli | `/etc/ssh/moduli` filtered to 3072 bits and more |
 
-These files ensure compatibility with each distribution's OpenSSH version and available algorithms. The role automatically detects the OpenSSH version and loads the appropriate algorithm configuration.
-
-##### Cryptographic options
 ```yaml
-# RSA Key Requirements
-ssh_required_rsa_size: 4096           # Minimum RSA key size
+ssh_kex_post_quantum_only: false      # true: offer only ML-KEM / sntrup hybrids (as ssh-audit's Debian 13 / Ubuntu 26.04 guides)
+ssh_pubkey_accept_sk_ecdsa: false     # true: accept FIDO ECDSA keys, for authenticators without ed25519-sk
+ssh_required_rsa_size: 4096           # Minimum RSA key size (OpenSSH 9.1+)
+ssh_moduli_minimum: 3072              # 0 leaves /etc/ssh/moduli untouched
+
+# Each list can be replaced as a whole, e.g. in group_vars:
+# ssh_kex_algorithms: [mlkem768x25519-sha256, curve25519-sha256]
+# ssh_ciphers / ssh_macs / ssh_host_key_algorithms / ssh_pubkey_accepted_algorithms /
+# ssh_hostbased_accepted_algorithms / ssh_ca_signature_algorithms / ssh_gssapi_kex_algorithms
 ```
 
 ## 🎯 Usage Examples
@@ -215,9 +241,9 @@ ssh_required_rsa_size: 4096           # Minimum RSA key size
     - role: cedricfarinazzo.ssh
       vars:
         ssh_additional_config:
-          - "PermitTunnel no"
-          - "ChrootDirectory none"
-          - "AllowTcpForwarding no"
+          - "Match Group sftponly"
+          - "  ForceCommand internal-sftp"
+          - "  ChrootDirectory %h"
 ```
 
 ## 🧪 Testing

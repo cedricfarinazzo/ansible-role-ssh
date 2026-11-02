@@ -13,10 +13,6 @@
   ansible.builtin.include_tasks: openssh_version.yml
   tags: ssh
 
-- name: Include OpenSSH version-specific SSH algorithm variables
-  ansible.builtin.include_vars: "openssh-{{ openssh_config_version }}.yml"
-  tags: ssh
-
 - name: Create SSH configuration directory
   ansible.builtin.file:
     path: "{{ ssh_config_dir }}"
@@ -44,7 +40,7 @@
   tags: ssh
 
 - name: Generate SSH host keys if they don't exist
-  ansible.builtin.command: "ssh-keygen -t {{ item.1 }} -f {{ item.0 }} -N '' -C 'Host key for {{ ansible_hostname }}'"
+  ansible.builtin.command: "ssh-keygen -t {{ item.1 }}{{ ' -b ' ~ ssh_host_key_rsa_bits if item.1 == 'rsa' else '' }} -f {{ item.0 }} -N '' -C 'Host key for {{ ansible_hostname }}'"
   loop: "{{ ssh_host_keys | zip(ssh_host_key_types) | list }}"
   loop_control:
     index_var: key_index
@@ -71,6 +67,19 @@
     group: root
     mode: '0644'
   loop: "{{ ssh_host_keys }}"
+  tags: ssh
+
+- name: Check for the moduli file
+  ansible.builtin.stat:
+    path: /etc/ssh/moduli
+  register: ssh_moduli_stat
+  tags: ssh
+
+- name: Filter weak Diffie-Hellman moduli
+  ansible.builtin.include_tasks: moduli.yml
+  when:
+    - ssh_moduli_minimum | int > 0
+    - ssh_moduli_stat.stat.exists
   tags: ssh
 
 - name: Manage authorized keys

@@ -30,46 +30,68 @@
         fail_msg: "SSH configuration file does not exist"
         success_msg: "SSH configuration file exists"
 
-    - name: Load the role's OpenSSH version bands
+    - name: Load the role's variables
       ansible.builtin.include_vars: ../../../vars/main.yml
+
+    - name: Load the role's defaults under a namespace (they must not override the scenario's host_vars)
+      ansible.builtin.include_vars:
+        file: ../../../defaults/main.yml
+        name: role_defaults
 
     - name: Detect the OpenSSH version the way the role does
       ansible.builtin.include_tasks: ../../../tasks/openssh_version.yml
       vars:
         ssh_package: openssh-server
 
-    - name: Include OpenSSH version-specific algorithm variables for verification
-      ansible.builtin.include_vars: "../../../vars/openssh-{{ openssh_config_version }}.yml"
-
-    - name: Check if KexAlgorithms line exists in sshd_config (OpenSSH 8.5+)
-      ansible.builtin.shell: grep "^KexAlgorithms" /etc/ssh/sshd_config || echo "NOT_FOUND"
-      register: kex_algorithms_check
+    - name: Read the effective sshd configuration
+      ansible.builtin.command: /usr/sbin/sshd -T
+      register: sshd_effective
       changed_when: false
-      when: openssh_version is version('8.5', '>=')
 
-    - name: Verify modern KexAlgorithms are configured (OpenSSH 8.5+)
+    - name: Index the effective configuration by directive
+      ansible.builtin.set_fact:
+        sshd_t: >-
+          {% set d = {} %}{% for line in sshd_effective.stdout_lines %}{% set kv = line.split(' ', 1) %}
+          {% if kv | length == 2 and kv[0] not in d %}{% set _ = d.update({kv[0]: kv[1]}) %}{% endif %}{% endfor %}{{ d }}
+
+    - name: Verify the algorithm lists sshd runs with are the ones the role computed
       ansible.builtin.assert:
         that:
-          - kex_algorithms_check.stdout != "NOT_FOUND"
-          - kex_algorithms_check.stdout | length > 0
-        fail_msg: "Modern KexAlgorithms not properly configured for OpenSSH {{ openssh_version }}. Found: {{ kex_algorithms_check.stdout }}"
-        success_msg: "Modern KexAlgorithms properly configured for OpenSSH {{ openssh_version }}"
-      when: openssh_version is version('8.5', '>=') and kex_algorithms_check is defined
+          - sshd_t['kexalgorithms'] == role_defaults.ssh_kex_algorithms | join(',')
+          - sshd_t['ciphers'] == role_defaults.ssh_ciphers | join(',')
+          - sshd_t['macs'] == role_defaults.ssh_macs | join(',')
+          - sshd_t['hostkeyalgorithms'] == role_defaults.ssh_host_key_algorithms | join(',')
+          - sshd_t['pubkeyacceptedalgorithms'] == role_defaults.ssh_pubkey_accepted_algorithms | join(',')
+          - "'ecdsa' not in sshd_t['pubkeyacceptedalgorithms']"
+          - "'diffie-hellman' not in sshd_t['kexalgorithms'] or openssh_version is version('10.0', '<')"
+          - "'mlkem768x25519-sha256' in sshd_t['kexalgorithms'] or openssh_version is version('9.9', '<')"
+        fail_msg: "sshd -T disagrees with the role on OpenSSH {{ openssh_version }}: {{ sshd_t | dict2items | selectattr('key', 'search', 'algorithms|ciphers|macs') | items2dict }}"
 
-    - name: Check if KexAlgorithms line exists in sshd_config (OpenSSH < 8.5)
-      ansible.builtin.shell: grep "^KexAlgorithms" /etc/ssh/sshd_config || echo "NOT_FOUND"
-      register: kex_algorithms_legacy_check
-      changed_when: false
-      when: openssh_version is version('8.5', '<')
-
-    - name: Verify legacy-compatible KexAlgorithms are configured (OpenSSH < 8.5)
+    - name: Verify the hardened session and connection settings
       ansible.builtin.assert:
         that:
-          - kex_algorithms_legacy_check.stdout != "NOT_FOUND"
-          - kex_algorithms_legacy_check.stdout | length > 0
-        fail_msg: "Legacy-compatible KexAlgorithms not properly configured for OpenSSH {{ openssh_version }}. Found: {{ kex_algorithms_legacy_check.stdout }}"
-        success_msg: "Legacy-compatible KexAlgorithms properly configured for OpenSSH {{ openssh_version }}"
-      when: openssh_version is version('8.5', '<') and kex_algorithms_legacy_check is defined
+          - sshd_t['loglevel'] == 'VERBOSE'
+          - sshd_t['compression'] == 'no'
+          - sshd_t['allowtcpforwarding'] == 'no'
+          - sshd_t['allowstreamlocalforwarding'] == 'no'
+          - sshd_t['allowagentforwarding'] == 'no'
+          - sshd_t['x11forwarding'] == 'no'
+          - sshd_t['permittunnel'] == 'no'
+          - sshd_t['permituserenvironment'] == 'no'
+          - sshd_t['hostbasedauthentication'] == 'no'
+          - sshd_t['ignorerhosts'] == 'yes'
+          - sshd_t['maxstartups'] == '10:30:60'
+          - sshd_t['authorizedkeysfile'] == '.ssh/authorized_keys'
+
+    - name: Read the moduli file
+      ansible.builtin.command: awk '!/^#/ && NF >= 7 && $5 < 3071' /etc/ssh/moduli
+      register: weak_moduli
+      changed_when: false
+
+    - name: Verify no modulus below 3072 bits is left
+      ansible.builtin.assert:
+        that: weak_moduli.stdout_lines | length == 0
+        fail_msg: "{{ weak_moduli.stdout_lines | length }} moduli below 3072 bits remain"
 
     - name: Check if custom SSH port is configured
       ansible.builtin.lineinfile:

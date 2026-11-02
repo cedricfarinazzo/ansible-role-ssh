@@ -1,0 +1,7 @@
+{# Field 5 is the size minus one (3071 for a 3072-bit modulus). #}
+{% for line in (ssh_moduli_file.content | b64decode).splitlines() %}
+{% set fields = line.split() %}
+{% if line.startswith('#') or fields | length < 7 or (fields[4] | int) >= ssh_moduli_minimum - 1 %}
+{{ line }}
+{% endif %}
+{% endfor %}

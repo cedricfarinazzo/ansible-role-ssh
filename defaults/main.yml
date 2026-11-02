@@ -14,13 +14,17 @@ ssh_socket_activation: false
 # SSH port configuration
 ssh_port: 22
 
-# SSH protocol configuration
-ssh_protocol: 2
-
 # Host key configuration
 ssh_host_keys:
   - /etc/ssh/custom_ssh_host_rsa_key
   - /etc/ssh/custom_ssh_host_ed25519_key
+
+# Host key generation (one type per ssh_host_keys entry, same order)
+ssh_generate_host_keys: true
+ssh_host_key_types:
+  - rsa
+  - ed25519
+ssh_host_key_rsa_bits: 4096
 
 # Authentication settings
 ssh_login_grace_time: 40
@@ -29,10 +33,14 @@ ssh_strict_modes: true
 ssh_max_auth_tries: 3
 ssh_max_sessions: 10
 ssh_pubkey_authentication: true
-ssh_authorized_keys_file: .ssh/authorized_keys .ssh/authorized_keys2
+ssh_authorized_keys_file: .ssh/authorized_keys
 ssh_password_authentication: false
 ssh_permit_empty_passwords: false
 ssh_kbd_interactive_authentication: false
+ssh_hostbased_authentication: false
+ssh_ignore_rhosts: true
+# e.g. "publickey" or "publickey,keyboard-interactive"; empty leaves sshd's default
+ssh_authentication_methods: ""
 
 # Kerberos options
 ssh_kerberos_authentication: false
@@ -43,16 +51,31 @@ ssh_gssapi_authentication: false
 # PAM authentication
 ssh_use_pam: true
 
-# Forwarding and display settings
+# Forwarding and session features
 ssh_allow_agent_forwarding: false
+ssh_allow_tcp_forwarding: false
+ssh_allow_stream_local_forwarding: false
+ssh_gateway_ports: false
+ssh_permit_tunnel: false
 ssh_x11_forwarding: false
+ssh_permit_user_environment: false
 ssh_print_motd: false
-ssh_compression: true
+# OpenSSH 10.6 disabled compression dictionaries after a plaintext-recovery attack
+ssh_compression: false
 
 # Connection settings
 ssh_client_alive_count_max: 3
 ssh_client_alive_interval: 120
-ssh_max_startups: "10:30:100"
+ssh_max_startups: "10:30:60"
+# Per-source limits, empty leaves sshd's default (e.g. "10" and "32:128")
+ssh_per_source_max_startups: ""
+ssh_per_source_net_block_size: ""
+# OpenSSH 9.8+: penalties are on by default; empty keeps sshd's values
+ssh_per_source_penalties: ""
+ssh_per_source_penalty_exempt_list: []
+# OpenSSH 9.2+: e.g. "5m" and "session=30m"; empty leaves them unset
+ssh_unused_connection_timeout: ""
+ssh_channel_timeout: ""
 
 # Banner settings
 ssh_banner: none
@@ -68,31 +91,38 @@ ssh_allow_users:
 # Authorized keys management
 ssh_authorized_keys: []
 
-# Security algorithms - conservative defaults that work across OpenSSH versions
-# These will be overridden by OS-specific variables for optimal security
-
+# Cryptography: computed from the installed OpenSSH version (vars/main.yml); override any list here.
+ssh_kex_post_quantum_only: false
+ssh_kex_algorithms: "{{ openssh_kex_available | select('match', '^(mlkem|sntrup)' if ssh_kex_post_quantum_only else '.') | list }}"
+ssh_ciphers: "{{ openssh_ciphers_available }}"
+ssh_macs: "{{ openssh_macs_available }}"
+ssh_host_key_algorithms: "{{ openssh_host_key_algorithms_available }}"
+# Accept FIDO ECDSA keys (sk-ecdsa), for authenticators that cannot make ed25519-sk keys
+ssh_pubkey_accept_sk_ecdsa: false
+ssh_pubkey_accepted_algorithms: "{{ openssh_host_key_algorithms_available + (openssh_sk_ecdsa_available if ssh_pubkey_accept_sk_ecdsa else []) }}"
+ssh_hostbased_accepted_algorithms: "{{ openssh_host_key_algorithms_available }}"
+ssh_ca_signature_algorithms: "{{ openssh_ca_signature_available + (openssh_sk_ecdsa_available | reject('search', 'cert') | list if ssh_pubkey_accept_sk_ecdsa else []) }}"
+ssh_gssapi_kex_algorithms: "{{ openssh_gssapi_kex_algorithms }}"
 ssh_required_rsa_size: 4096
+# Drop Diffie-Hellman group-exchange moduli below this size from /etc/ssh/moduli; 0 keeps the file as is
+ssh_moduli_minimum: 3072
 
-# Logging
+# Logging (VERBOSE records the key fingerprint of each login)
 ssh_syslog_facility: AUTH
+ssh_log_level: VERBOSE
 
 # SFTP subsystem command; empty keeps the setting out of sshd_config (no sftp, scp falls back to SCP mode)
 # Debian: /usr/lib/openssh/sftp-server, RedHat: /usr/libexec/openssh/sftp-server
 ssh_subsystem_sftp: ""
 
-# Additional SSH configuration directives
+# Additional SSH configuration directives, written last: sshd keeps the first value of a directive,
+# so these cannot override one the template already sets (Match blocks belong here).
 ssh_additional_config: []
 # Example:
 # ssh_additional_config:
-#   - "PermitTunnel no"
-#   - "ChrootDirectory none"
+#   - "Match Group sftponly"
+#   - "  ForceCommand internal-sftp"
 
-# Host key generation
-ssh_generate_host_keys: true
-ssh_host_key_types:
-  - rsa
-  - ed25519
-
-# Include custom configuration from /etc/ssh/sshd_config.d/
+# Include custom configuration from /etc/ssh/sshd_config.d/ (placed first, so drop-ins win)
 ssh_include_config_dir: false
 ssh_config_dir: "/etc/ssh/sshd_config.d"

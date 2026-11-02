@@ -1,0 +1,15 @@
+---
+- name: Read the Diffie-Hellman moduli
+  ansible.builtin.slurp:
+    src: /etc/ssh/moduli
+  register: ssh_moduli_file
+
+- name: Keep only moduli of at least ssh_moduli_minimum bits
+  ansible.builtin.template:
+    src: moduli.j2
+    dest: /etc/ssh/moduli
+    owner: root
+    group: root
+    mode: '0644'
+    backup: true
+  notify: Restart SSH service
