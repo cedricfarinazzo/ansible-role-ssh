@@ -55,7 +55,7 @@ jobs:
       matrix:
         include:
           - {distro: debian13, args: ""}
-          # EL 9 containers on GitHub runners refuse PAM account checks (sshd and sudo); EL 10 covers the family
+          - {distro: rockylinux9, args: ""}
           - {distro: rockylinux10, args: ""}
           - {distro: ubuntu2404, args: ""}
           - {distro: ubuntu2404, args: "-e ssh_socket_activation=true"}

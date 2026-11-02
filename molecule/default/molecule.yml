@@ -22,7 +22,7 @@ provisioner:
   inventory:
     host_vars:
       instance:
-        # The container runs as root; sudo there can fail on PAM (seen on EL 9 in CI)
+        # The container runs as root; EL sudo fails on GitHub runners (unix_chkpwd loses its setuid bit)
         ansible_become: false
         ssh_port: 12345
         # The controller audits from the docker bridge; OpenSSH 9.8+ would penalise the repeated audits
