@@ -297,7 +297,7 @@ make molecule-test-all
 source .venv/bin/activate && yamllint . && ansible-lint
 ```
 
-CI (`.github/workflows/ci.yml`) runs the lint and the Molecule matrix on every pull request.
+CI (`.github/workflows/ci.yml`) runs the lint, the Molecule matrix and the real-SSH port-migration test (`tests/migration/run.sh`) on every pull request.
 
 ## 🚢 Releases
 

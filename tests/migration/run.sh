@@ -19,7 +19,7 @@ docker exec "$NAME" bash -c "
   if command -v apt-get >/dev/null; then apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq openssh-server sudo >/dev/null
   else dnf install -y -q openssh-server sudo >/dev/null; fi
   useradd -m -s /bin/bash tester
-  # EL leaves a new account locked (!!), which its PAM account stack refuses even for key logins
+  # A usable, never-locked test account (useradd leaves it locked on EL)
   usermod -p '*' tester
   install -d -m 700 -o tester -g tester /home/tester/.ssh
   echo '$(cat "$WORK/key.pub")' > /home/tester/.ssh/authorized_keys
@@ -29,7 +29,7 @@ docker exec "$NAME" bash -c "
   # The test reconnects from one address many times; OpenSSH 9.8+ would penalise it
   if [ -d /etc/ssh/sshd_config.d ]; then echo 'PerSourcePenalties no' > /etc/ssh/sshd_config.d/00-test.conf; sshd -t 2>/dev/null || rm /etc/ssh/sshd_config.d/00-test.conf; fi
   systemctl enable --now ssh 2>/dev/null || systemctl enable --now sshd
-  # A container still booting keeps /run/nologin, and pam_nologin then refuses every login but root
+  # Clear a boot-time nologin, if any, so the first key login is not refused
   systemctl start systemd-user-sessions 2>/dev/null || true
   rm -f /run/nologin /etc/nologin"
 IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$NAME")
