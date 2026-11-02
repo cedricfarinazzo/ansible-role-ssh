@@ -50,9 +50,7 @@
 
     - name: Index the effective configuration by directive
       ansible.builtin.set_fact:
-        sshd_t: >-
-          {% set d = {} %}{% for line in sshd_effective.stdout_lines %}{% set kv = line.split(' ', 1) %}
-          {% if kv | length == 2 and kv[0] not in d %}{% set _ = d.update({kv[0]: kv[1]}) %}{% endif %}{% endfor %}{{ d }}
+        sshd_t: "{{ dict(sshd_effective.stdout_lines | select('match', '^\\S+ ') | map('regex_findall', '^(\\S+) (.*)$') | map('first')) }}"
 
     - name: Verify the algorithm lists sshd runs with are the ones the role computed
       ansible.builtin.assert:
