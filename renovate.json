@@ -27,6 +27,13 @@
       "matchFileNames": [
         "requirements.yml"
       ]
+    },
+    {
+      "description": "conventional-changelog-conventionalcommits 10 needs conventional-changelog-writer 9; @semantic-release/release-notes-generator 14 ships writer 8",
+      "matchPackageNames": [
+        "conventional-changelog-conventionalcommits"
+      ],
+      "allowedVersions": "<10"
     }
   ],
   "ansible-galaxy": {
