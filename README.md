@@ -21,7 +21,7 @@ The role will automatically:
 - ✅ Install and configure OpenSSH server
 - ✅ Apply hardened security settings based on [SSH Audit hardening guides](https://www.ssh-audit.com/hardening_guides.html)
 - ✅ Generate secure host keys if they don't exist
-- ✅ Configure custom SSH port (default: 22) for security through obscurity
+- ✅ Configure the SSH port (default: 22), with an optional lock-out-safe move to a new port
 - ✅ Disable password authentication and root login
 - ✅ Enable only secure cryptographic algorithms
 
@@ -65,6 +65,7 @@ The role uses secure defaults but can be customized through these variables:
 ssh_package: openssh-server           # Package name (per OS family by default)
 ssh_package_state: present           # Package state
 ssh_service_name: ssh                # Service name (per OS family: ssh on Debian/Ubuntu, sshd on EL)
+ssh_selinux_packages: [policycoreutils-python-utils]  # Installed when SELinux is enabled
 ssh_service_state: started           # Service state
 ssh_service_enabled: true            # Enable on boot
 ssh_socket_activation: false         # Ubuntu 22.10+: keep ssh.socket (true) or use the plain service
@@ -157,6 +158,7 @@ ssh_debian_banner: false              # Debian/Ubuntu only
 ssh_accept_env: "LANG LC_*"
 ssh_additional_config: []             # Raw lines written last (Match blocks); cannot override a directive set above
 ssh_include_config_dir: false         # Include sshd_config.d/*.conf first: drop-ins then win over the role
+ssh_config_dir: /etc/ssh/sshd_config.d  # Directory included by ssh_include_config_dir
 ```
 
 #### Cryptographic Algorithms
@@ -301,14 +303,14 @@ CI (`.github/workflows/ci.yml`) runs the lint, the Molecule matrix and the real-
 
 ## 🚢 Releases
 
-Versions are cut by [semantic-release](https://github.com/semantic-release/semantic-release) from [Conventional Commits](https://www.conventionalcommits.org/) on `main`: `fix:` releases a patch, `feat:` a minor, a `!` or `BREAKING CHANGE:` footer a major. Pull requests are squash-merged, so the pull request title must follow the convention (checked in CI). Each release gets a bare semver tag (`1.2.3`) and GitHub release notes; Ansible Galaxy imports the new tag from the repository. [Renovate](https://docs.renovatebot.com/) keeps the tooling and the pinned GitHub Actions up to date.
+Versions are cut by [semantic-release](https://github.com/semantic-release/semantic-release) from [Conventional Commits](https://www.conventionalcommits.org/) on `main`: `fix:` releases a patch, `feat:` a minor, a `!` or `BREAKING CHANGE:` footer a major. semantic-release reads every commit that lands on `main`: a squash merge lands the pull request title (checked in CI), a merge commit lands each branch commit, so both must follow the convention. Each release gets a bare semver tag (`1.2.3`) and GitHub release notes; Ansible Galaxy imports the new tag from the repository. [Renovate](https://docs.renovatebot.com/) keeps the tooling and the pinned GitHub Actions up to date.
 
 ## 📦 Dependencies
 
 This role has **minimal external dependencies** and uses:
 - ✅ **Ansible Core Modules** (built-in)
 - ✅ **Standard OS Packages** (openssh-server)
-- ✅ **Optional Collections** (community.general, ansible.posix)
+- ✅ **Collections** `community.general` (SELinux port) and `ansible.posix` (authorized keys), from `requirements.yml`
 
 ## 👥 Authors & Contributors
 

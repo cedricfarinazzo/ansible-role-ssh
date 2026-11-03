@@ -28,7 +28,7 @@ Public Ansible role `cedricfarinazzo.ssh` (Ansible Galaxy): installs OpenSSH ser
 
 ## Conventions
 
-- **Conventional Commits** (`conventionalcommits` preset, so a `!` after the type is breaking). `feat:` → minor, `fix:` / `perf:` → patch, `!` or a `BREAKING CHANGE:` footer → major; `docs:` / `ci:` / `chore:` / `test:` / `refactor:` / `build:` release nothing. Scope optional (`feat(template): …`). PRs are squash-merged, so the **PR title is the commit** semantic-release reads; `pr-title.yml` checks it.
+- **Conventional Commits** (`conventionalcommits` preset, so a `!` after the type is breaking). `feat:` → minor, `fix:` / `perf:` → patch, `!` or a `BREAKING CHANGE:` footer → major; `docs:` / `ci:` / `chore:` / `test:` / `refactor:` / `build:` release nothing. Scope optional (`feat(template): …`). semantic-release reads every commit on `main`: a squash merge lands the **PR title** (`pr-title.yml` checks it), a merge commit lands each branch commit, so every branch commit is conventional too.
 - **Breaking = a consumer must act.** Dropping a platform, renaming or removing a variable, changing a default that alters the rendered `sshd_config` in a way that can lock someone out or reject a client (port, users, algorithms, auth methods, host key paths).
 - **Tags are bare semver** (`1.2.3`, no `v`), matching the tags published before semantic-release (`tagFormat` in `.releaserc.json`). Release notes live in GitHub Releases; there is no `CHANGELOG.md` and no release commit (the `main` ruleset requires a PR, so CI cannot push one).
 - **Variables:** every user-facing variable starts with `ssh_`, is defined in `defaults/main.yml` and documented in `README.md` in the same PR. Internal values start with `openssh_` and live in `vars/main.yml` or `vars/<os_family>.yml`. A user-facing value computed by the role is a default that references an `openssh_*` var (`ssh_ciphers: "{{ openssh_ciphers_available }}"`), never a `vars/` entry: `vars/` beats inventory, so a consumer could not override it.
@@ -46,13 +46,13 @@ Public Ansible role `cedricfarinazzo.ssh` (Ansible Galaxy): installs OpenSSH ser
 
 1. Check a `geerlingguy/docker-<distro>-ansible:latest` image exists.
 2. Find its OpenSSH version. Below `openssh_minimum_version` → not supportable. Newer than every candidate's knowledge → read the release notes since the last version the role knows; add or end candidates in `vars/main.yml`.
-3. New OS family → `vars/<os_family>.yml` with `ssh_package` and `ssh_service_name`.
+3. New OS family → `vars/<os_family>.yml` with `openssh_package`, `openssh_service_name` and `openssh_selinux_packages`.
 4. Add it to the CI matrix, `meta/main.yml`, `README.md` and `run-tests.sh` usage.
 5. `./run-tests.sh <distro>` green locally, `ssh-audit` included.
 
 ## How releases work
 
-1. A PR is squash-merged into `main` with a Conventional Commit title.
+1. A PR is merged into `main` (squash: the Conventional Commit title; merge commit: each conventional branch commit).
 2. `release.yml` runs `bunx semantic-release`: it analyses commits since the last tag, creates the tag and a GitHub Release with generated notes, and comments on the released PRs.
 3. Ansible Galaxy watches the repository and imports each new tag by itself; nothing in CI pushes to Galaxy.
 
@@ -76,3 +76,16 @@ Public Ansible role `cedricfarinazzo.ssh` (Ansible Galaxy): installs OpenSSH ser
 - Molecule's docker connection ignores `ansible_port`: the scenario proves the listening ports, not the reconnect; test a real migration against a VM.
 - `/etc/ssh/moduli` field 5 is the size minus one (3071 for 3072 bits).
 - Ubuntu 22.10+ `ssh.socket`: a systemd generator derives the listeners from `sshd_config`; a port change needs `daemon-reload` + socket restart (handled by the handlers when `ssh_socket_activation: true`).
+
+## Self Improvement Loop
+
+Keep `CLAUDE.md` and `README.md` accurate, in the same PR as the change. Update when:
+
+- **A variable is added, renamed or removed:** `defaults/main.yml` and the `README.md` variable blocks (every `ssh_*` default is documented).
+- **A platform is added or dropped:** the "Adding a platform" checklist sets; the `README.md` table states its OpenSSH version.
+- **A file or task file is added, removed or changes role:** Layout above.
+- **A tool or Action is added:** pinned in its own file (`requirements-dev.txt`, `package.json`, the workflow); never copy versions into prose.
+- **A trap costs a debugging round:** one Gotchas line: the symptom, the cause, the fix.
+- **A convention is established:** Conventions above.
+
+New fact replaces the old clause; never append a changelog. Prefer small targeted edits over rewrites.
