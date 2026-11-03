@@ -1,4 +1,4 @@
-#!/bin/zsh
+#!/usr/bin/env bash
 # Script to run molecule tests for the SSH Ansible role
 
 # Function to display usage
@@ -8,8 +8,8 @@ function show_usage() {
     echo "Run molecule tests for the SSH Ansible role"
     echo
     echo "Arguments:"
-    echo "  DISTRO    Distribution to test with (default: debian11)"
-    echo "            Supported: debian11, debian12, ubuntu2004, ubuntu2404"
+    echo "  DISTRO    Distribution to test with (default: debian12)"
+    echo "            Supported: debian12, ubuntu2404"
     echo
     echo "Examples:"
     echo "  $0              # Test with Debian 11"
@@ -48,32 +48,17 @@ if ! docker info &> /dev/null; then
     exit 1
 fi
 
-# Check if molecule is installed in the virtual environment
-if [ ! -f "${VENV_PATH}/bin/molecule" ]; then
-    echo -e "${YELLOW}Molecule virtual environment not found or not set up correctly.${NC}"
-    echo -e "Creating Python virtual environment and installing dependencies..."
-    
-    # Create virtual environment if it doesn't exist
-    if [ ! -d "${VENV_PATH}" ]; then
-        python3 -m venv "${VENV_PATH}"
-    fi
-    
-    # Install dependencies
-    "${VENV_PATH}/bin/pip" install molecule molecule-docker pytest-testinfra ansible ansible-lint
-    
-    if [ $? -ne 0 ]; then
-        echo -e "${RED}Failed to install molecule and dependencies.${NC}"
-        exit 1
-    fi
-
-    # Install required Ansible collections
-    echo -e "${YELLOW}Installing required Ansible collections...${NC}"
-    source "${VENV_PATH}/bin/activate" && ansible-galaxy collection install -r requirements.yml
-    
-    if [ $? -ne 0 ]; then
-        echo -e "${RED}Failed to install Ansible collections.${NC}"
-        exit 1
-    fi
+# Create the virtual environment once; install the pinned tooling every run so a pin bump lands
+if [ ! -d "${VENV_PATH}" ]; then
+    python3 -m venv "${VENV_PATH}"
+fi
+if ! "${VENV_PATH}/bin/pip" install --quiet -r requirements-dev.txt; then
+    echo -e "${RED}Failed to install the tooling from requirements-dev.txt.${NC}"
+    exit 1
+fi
+if ! "${VENV_PATH}/bin/ansible-galaxy" collection install -r requirements.yml; then
+    echo -e "${RED}Failed to install Ansible collections.${NC}"
+    exit 1
 fi
 
 # Display test information
@@ -82,20 +67,18 @@ echo "Python virtual environment: ${VENV_PATH}"
 
 # Pull Docker image in advance to avoid timeout issues
 echo -e "${YELLOW}Pulling Docker image...${NC}"
-docker pull geerlingguy/docker-${1:-debian11}-ansible:latest
+docker pull geerlingguy/docker-${1:-debian12}-ansible:latest
 
 # Set up environment variables
-export MOLECULE_DISTRO=${1:-debian11}
+export MOLECULE_DISTRO=${1:-debian12}
 export MOLECULE_NO_LOG=false
 export MOLECULE_ROLE_NAME_CHECK=0
 
 echo -e "${YELLOW}Running molecule test with ${MOLECULE_DISTRO}...${NC}"
 
-# Run the test in the virtual environment with direct command execution
-source "${VENV_PATH}/bin/activate" && molecule test
-
-# Check for success
-if [ $? -eq 0 ]; then
+# shellcheck source=/dev/null
+source "${VENV_PATH}/bin/activate"
+if molecule test; then
     echo -e "${GREEN}Tests completed successfully!${NC}"
 else
     echo -e "${RED}Tests failed.${NC}"

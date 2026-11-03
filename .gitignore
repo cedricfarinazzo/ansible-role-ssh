@@ -21,3 +21,7 @@ __pycache__/
 # OS specific files
 .DS_Store
 Thumbs.db
+.ansible/
+
+# semantic-release tooling
+node_modules/

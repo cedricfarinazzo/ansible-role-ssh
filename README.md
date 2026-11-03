@@ -206,14 +206,24 @@ ssh_required_rsa_size: 4096           # Minimum RSA key size
 
 ## 🧪 Testing
 
-### Quick Testing
-```bash
-# Run test against debian11
-make test
+Molecule runs the role in a Docker container, then checks the rendered `sshd_config` and runs [`ssh-audit`](https://github.com/jtesta/ssh-audit) against it. The tooling is pinned in `requirements-dev.txt`; `run-tests.sh` installs it into `.venv`.
 
-# Test against all supported distributions  
+```bash
+# One distribution
+./run-tests.sh debian12
+
+# Every supported distribution
 make molecule-test-all
+
+# Lint
+source .venv/bin/activate && yamllint . && ansible-lint
 ```
+
+CI (`.github/workflows/ci.yml`) runs the lint and the Molecule matrix on every pull request.
+
+## 🚢 Releases
+
+Versions are cut by [semantic-release](https://github.com/semantic-release/semantic-release) from [Conventional Commits](https://www.conventionalcommits.org/) on `main`: `fix:` releases a patch, `feat:` a minor, a `!` or `BREAKING CHANGE:` footer a major. Pull requests are squash-merged, so the pull request title must follow the convention (checked in CI). Each release gets a bare semver tag (`1.2.3`) and GitHub release notes; Ansible Galaxy imports the new tag from the repository. [Renovate](https://docs.renovatebot.com/) keeps the tooling and the pinned GitHub Actions up to date.
 
 ## 📦 Dependencies
 

@@ -1,5 +1,5 @@
 # Define supported distributions
-SUPPORTED_DISTROS := debian11 debian12 ubuntu2004 ubuntu2404
+SUPPORTED_DISTROS := debian12 ubuntu2404
 DEFAULT_DISTRO := debian12
 
 .PHONY: molecule-test molecule-test-all lint help check-prereqs $(addprefix molecule-test-,$(SUPPORTED_DISTROS)) test
@@ -21,7 +21,7 @@ help:
 	@echo "Examples:"
 	@echo "  make test                             # Test with $(DEFAULT_DISTRO)"
 	@echo "  make molecule-test                    # Test with $(DEFAULT_DISTRO)"
-	@echo "  make molecule-test-ubuntu2004         # Test with Ubuntu 20.04"
+	@echo "  make molecule-test-ubuntu2404         # Test with Ubuntu 24.04"
 	@echo "  make molecule-test-all                # Test all distributions"
 
 molecule-test: check-prereqs
@@ -51,17 +51,9 @@ molecule-test-all: check-prereqs
 	fi
 
 # Individual distribution targets
-molecule-test-debian11: check-prereqs
-	@echo "Running molecule tests with Debian 11"
-	./run-tests.sh debian11
-
 molecule-test-debian12: check-prereqs
 	@echo "Running molecule tests with Debian 12"
 	./run-tests.sh debian12
-
-molecule-test-ubuntu2004: check-prereqs
-	@echo "Running molecule tests with Ubuntu 20.04"
-	./run-tests.sh ubuntu2004
 
 molecule-test-ubuntu2404: check-prereqs
 	@echo "Running molecule tests with Ubuntu 24.04"

@@ -3,4 +3,4 @@
   hosts: all
   become: true
   roles:
-    - role:  ../../../../ansible-role-ssh
+    - role: ../../../../ansible-role-ssh

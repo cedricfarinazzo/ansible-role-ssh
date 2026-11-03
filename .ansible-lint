@@ -50,3 +50,4 @@ exclude_paths:
   - .github/
   - molecule/
   - .venv/
+  - node_modules/
