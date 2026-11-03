@@ -23,7 +23,7 @@ Public Ansible role `cedricfarinazzo.ssh` (Ansible Galaxy): installs OpenSSH ser
 - `requirements.yml` — collections the role needs at runtime (consumer-facing ranges).
 - `requirements-dev.txt` — controller tooling (ansible-core, ansible-lint, molecule, molecule-plugins, yamllint, ssh-audit), exact pins.
 - `package.json`, `bun.lock`, `.releaserc.json` — semantic-release tooling only; the role itself has no Node code.
-- `.github/workflows/` — `ci.yml` (lint, Molecule matrix, real-SSH `migration` job), `pr-title.yml` (Conventional Commit title check), `release.yml` (semantic-release on `main`).
+- `.github/workflows/` — `ci.yml` (lint, Molecule matrix, real-SSH `migration` job), `pr-title.yml` (Conventional Commit title check), `release.yml` (semantic-release after `ci.yml` passes on `main`).
 - `renovate.json` — dependency updates.
 
 ## Conventions
@@ -53,7 +53,7 @@ Public Ansible role `cedricfarinazzo.ssh` (Ansible Galaxy): installs OpenSSH ser
 ## How releases work
 
 1. A PR is merged into `main` (squash: the Conventional Commit title; merge commit: each conventional branch commit).
-2. `release.yml` runs `bunx semantic-release`: it analyses commits since the last tag, creates the tag and a GitHub Release with generated notes, and comments on the released PRs.
+2. When `ci.yml` passes on the push to `main`, `release.yml` (`workflow_run`) runs `bunx semantic-release` on that commit: it analyses commits since the last tag, creates the tag and a GitHub Release with generated notes, and comments on the released PRs.
 3. Ansible Galaxy watches the repository and imports each new tag by itself; nothing in CI pushes to Galaxy.
 
 ## Commands
@@ -69,6 +69,7 @@ Public Ansible role `cedricfarinazzo.ssh` (Ansible Galaxy): installs OpenSSH ser
 
 - The Molecule docker driver comes from `molecule-plugins[docker]` and needs `community.docker` (`molecule/default/collections.yml`, installed by the `dependency` step).
 - Renovate automerge cannot complete while the `main` ruleset requires approval of the most recent push: Renovate PRs wait for the owner.
+- `conventional-changelog-conventionalcommits` stays on 9.x (Renovate `allowedVersions`): 10.x needs `conventional-changelog-writer` 9, `@semantic-release/release-notes-generator` 14 loads writer 8, and the release fails at `generateNotes` with 'Missing helper'. Lift the cap when release-notes-generator 15 is stable.
 - `ssh-audit` exits 0 (clean), 1 (connection error), 2 (warnings), 3 (failures); its JSON flag is `--json`.
 - `sshd -t` rejects unknown directives and unknown algorithm names, so each is guarded by the OpenSSH version that introduced it.
 - sshd keeps the **first** value of a directive: `ssh_additional_config` (written last) cannot override one the template sets, and `Include` (written first, when enabled) overrides the role.
