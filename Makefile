@@ -1,8 +1,8 @@
 # Define supported distributions
-SUPPORTED_DISTROS := debian12 ubuntu2404
+SUPPORTED_DISTROS := debian12 debian13 ubuntu2204 ubuntu2404 ubuntu2604 rockylinux9 rockylinux10
 DEFAULT_DISTRO := debian12
 
-.PHONY: molecule-test molecule-test-all lint help check-prereqs $(addprefix molecule-test-,$(SUPPORTED_DISTROS)) test
+.PHONY: molecule-test molecule-test-all lint help check-prereqs test
 
 help:
 	@echo "Available targets:"
@@ -51,13 +51,8 @@ molecule-test-all: check-prereqs
 	fi
 
 # Individual distribution targets
-molecule-test-debian12: check-prereqs
-	@echo "Running molecule tests with Debian 12"
-	./run-tests.sh debian12
-
-molecule-test-ubuntu2404: check-prereqs
-	@echo "Running molecule tests with Ubuntu 24.04"
-	./run-tests.sh ubuntu2404
+molecule-test-%: check-prereqs
+	./run-tests.sh $*
 
 lint:
 	ansible-lint

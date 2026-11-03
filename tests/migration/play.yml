@@ -1,0 +1,29 @@
+---
+# Driven by tests/migration/run.sh over real SSH: Molecule's docker connection ignores ansible_port.
+- name: Move sshd to ssh_port
+  hosts: target
+  become: true
+  gather_facts: false
+  pre_tasks:
+    - name: Find the port sshd answers on
+      ansible.builtin.include_role:
+        name: ansible-role-ssh
+        tasks_from: port_probe.yml
+
+    - name: Gather facts
+      ansible.builtin.setup:
+
+  roles:
+    - role: ansible-role-ssh
+
+  post_tasks:
+    - name: Report the connection port
+      ansible.builtin.command: printenv SSH_CONNECTION
+      vars:
+        ansible_become: false
+      changed_when: false
+      register: final_connection
+
+    - name: Fail unless the play ends connected on ssh_port
+      ansible.builtin.assert:
+        that: final_connection.stdout.split()[3] | int == ssh_port | int

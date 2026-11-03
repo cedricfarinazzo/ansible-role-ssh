@@ -30,58 +30,75 @@
         fail_msg: "SSH configuration file does not exist"
         success_msg: "SSH configuration file exists"
 
-    - name: Detect SSH version for verification
-      ansible.builtin.shell: ssh -V 2>&1 | head -1 | sed 's/.*OpenSSH_\([0-9]\+\.[0-9]\+\).*/\1/'
-      register: openssh_version_raw
+    - name: Load the role's variables
+      ansible.builtin.include_vars: ../../../vars/main.yml
+
+    # Loaded at top level (they reference each other); the checks below use literal ports, not ssh_port.
+    - name: Load the role's defaults
+      ansible.builtin.include_vars: ../../../defaults/main.yml
+
+    - name: Detect the OpenSSH version the way the role does
+      ansible.builtin.include_tasks: ../../../tasks/openssh_version.yml
+      vars:
+        ssh_package: openssh-server
+
+    - name: Read the effective sshd configuration
+      ansible.builtin.command: /usr/sbin/sshd -T
+      register: sshd_effective
       changed_when: false
 
-    - name: Set SSH version fact
+    - name: Index the effective configuration by directive
       ansible.builtin.set_fact:
-        openssh_version: "{{ openssh_version_raw.stdout | float }}"
+        sshd_t: "{{ dict(sshd_effective.stdout_lines | select('match', '^\\S+ ') | map('regex_findall', '^(\\S+) (.*)$') | map('first')) }}"
 
-    - name: Determine OpenSSH configuration version for verification
-      ansible.builtin.set_fact:
-        openssh_config_version: >-
-          {%- if openssh_version_raw.stdout | float >= 9.6 -%}
-          9.6
-          {%- elif openssh_version_raw.stdout | float >= 9.2 -%}
-          9.2
-          {%- else -%}
-          8.2
-          {%- endif -%}
-
-    - name: Include OpenSSH version-specific algorithm variables for verification
-      ansible.builtin.include_vars: "../../../vars/openssh-{{ openssh_config_version }}.yml"
-
-    - name: Check if KexAlgorithms line exists in sshd_config (OpenSSH 8.5+)
-      ansible.builtin.shell: grep "^KexAlgorithms" /etc/ssh/sshd_config || echo "NOT_FOUND"
-      register: kex_algorithms_check
-      changed_when: false
-      when: openssh_version is version('8.5', '>=')
-
-    - name: Verify modern KexAlgorithms are configured (OpenSSH 8.5+)
+    - name: Verify the algorithm lists sshd runs with are the ones the role computed
       ansible.builtin.assert:
         that:
-          - kex_algorithms_check.stdout != "NOT_FOUND"
-          - kex_algorithms_check.stdout | length > 0
-        fail_msg: "Modern KexAlgorithms not properly configured for OpenSSH {{ openssh_version }}. Found: {{ kex_algorithms_check.stdout }}"
-        success_msg: "Modern KexAlgorithms properly configured for OpenSSH {{ openssh_version }}"
-      when: openssh_version is version('8.5', '>=') and kex_algorithms_check is defined
+          - sshd_t['kexalgorithms'] == ssh_kex_algorithms | join(',')
+          - sshd_t['ciphers'] == ssh_ciphers | join(',')
+          - sshd_t['macs'] == ssh_macs | join(',')
+          - sshd_t['hostkeyalgorithms'] == ssh_host_key_algorithms | join(',')
+          - sshd_t['pubkeyacceptedalgorithms'] == ssh_pubkey_accepted_algorithms | join(',')
+          - sshd_t['hostbasedacceptedalgorithms'] == ssh_hostbased_accepted_algorithms | join(',')
+          - sshd_t['casignaturealgorithms'] == ssh_ca_signature_algorithms | join(',')
+          - "'ecdsa' not in sshd_t['pubkeyacceptedalgorithms']"
+          - "'diffie-hellman' not in sshd_t['kexalgorithms'] or openssh_version is version('10.0', '<')"
+          - "'mlkem768x25519-sha256' in sshd_t['kexalgorithms'] or openssh_version is version('9.9', '<')"
+        fail_msg: "sshd -T disagrees with the role on OpenSSH {{ openssh_version }}: {{ sshd_t | dict2items | selectattr('key', 'search', 'algorithms|ciphers|macs') | items2dict }}"
 
-    - name: Check if KexAlgorithms line exists in sshd_config (OpenSSH < 8.5)
-      ansible.builtin.shell: grep "^KexAlgorithms" /etc/ssh/sshd_config || echo "NOT_FOUND"
-      register: kex_algorithms_legacy_check
-      changed_when: false
-      when: openssh_version is version('8.5', '<')
-
-    - name: Verify legacy-compatible KexAlgorithms are configured (OpenSSH < 8.5)
+    - name: Verify the hardened session and connection settings
       ansible.builtin.assert:
         that:
-          - kex_algorithms_legacy_check.stdout != "NOT_FOUND"
-          - kex_algorithms_legacy_check.stdout | length > 0
-        fail_msg: "Legacy-compatible KexAlgorithms not properly configured for OpenSSH {{ openssh_version }}. Found: {{ kex_algorithms_legacy_check.stdout }}"
-        success_msg: "Legacy-compatible KexAlgorithms properly configured for OpenSSH {{ openssh_version }}"
-      when: openssh_version is version('8.5', '<') and kex_algorithms_legacy_check is defined
+          - sshd_t['loglevel'] == 'VERBOSE'
+          - sshd_t['compression'] == 'no'
+          - sshd_t['allowtcpforwarding'] == 'no'
+          - sshd_t['allowstreamlocalforwarding'] == 'no'
+          - sshd_t['allowagentforwarding'] == 'no'
+          - sshd_t['x11forwarding'] == 'no'
+          - sshd_t['permittunnel'] == 'no'
+          - sshd_t['permituserenvironment'] == 'no'
+          - sshd_t['hostbasedauthentication'] == 'no'
+          - sshd_t['ignorerhosts'] == 'yes'
+          - sshd_t['maxstartups'] == '10:30:60'
+          - sshd_t['authorizedkeysfile'] == '.ssh/authorized_keys'
+          - "sshd_t.get('persourcepenaltyexemptlist', '172.16.0.0/12') == '172.16.0.0/12'"
+
+    - name: Read the moduli file
+      ansible.builtin.command: awk '!/^#/ && NF >= 7 && $5 < 3071' /etc/ssh/moduli
+      register: weak_moduli
+      changed_when: false
+
+    - name: Count the moduli of at least 3072 bits
+      ansible.builtin.command: awk '!/^#/ && NF >= 7 && $5 >= 3071' /etc/ssh/moduli
+      register: strong_moduli
+      changed_when: false
+
+    - name: Verify no modulus below 3072 bits is left, and some remain
+      ansible.builtin.assert:
+        that:
+          - weak_moduli.stdout_lines | length == 0
+          - strong_moduli.stdout_lines | length > 0
+        fail_msg: "{{ weak_moduli.stdout_lines | length }} moduli below 3072 bits remain"
 
     - name: Check if custom SSH port is configured
       ansible.builtin.lineinfile:
@@ -128,6 +145,19 @@
         fail_msg: "Password authentication is not disabled"
         success_msg: "Password authentication is disabled"
 
+    - name: Verify the port migration closed the old port
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: 22
+        state: stopped
+        timeout: 5
+
+    - name: Verify no stage-A config was left in place
+      ansible.builtin.command: grep -c '^Port ' /etc/ssh/sshd_config
+      register: port_lines
+      changed_when: false
+      failed_when: port_lines.stdout != '1'
+
     - name: Test SSH connection to configured port
       ansible.builtin.wait_for:
         host: "{{ ansible_facts['default_ipv4']['address'] }}"
@@ -143,48 +173,31 @@
         fail_msg: "SSH connection test failed - port 12345 is not accessible"
         success_msg: "SSH connection test successful - port 12345 is accessible"
 
-    # ssh-audit (requirements-dev.txt) runs on the controller: some targets' Python is too old for it
+    # ssh-audit (requirements-dev.txt) runs on the controller: some targets' Python is too old for it.
+    # One run only: OpenSSH 9.8+ PerSourcePenalties refuses a second audit from the same source.
     - name: Run ssh-audit from the controller against the configured port
-      ansible.builtin.command: "ssh-audit {{ ansible_facts['default_ipv4']['address'] }}:12345"
+      ansible.builtin.command: "ssh-audit --json {{ ansible_facts['default_ipv4']['address'] }}:12345"
       delegate_to: localhost
       become: false
       register: ssh_audit_result
       changed_when: false
       failed_when: false
 
-    - name: Display ssh-audit results
+    - name: Parse the ssh-audit report
+      ansible.builtin.set_fact:
+        ssh_audit_json: "{{ ssh_audit_result.stdout | from_json }}"
+
+    - name: Display the ssh-audit recommendations
       ansible.builtin.debug:
-        var: ssh_audit_result.stdout_lines
+        var: ssh_audit_json.recommendations
 
     # ssh-audit exits 0 (good), 1 (connection error), 2 (warnings only) or 3 (failures)
-    - name: Check ssh-audit exit code for critical issues
+    - name: Verify ssh-audit audited this server and found no failure
       ansible.builtin.assert:
         that:
           - ssh_audit_result.rc in [0, 2]
-        fail_msg: "ssh-audit found critical security issues. Exit code: {{ ssh_audit_result.rc }}. Check the output above for details."
-        success_msg: "ssh-audit security verification passed successfully"
-
-    - name: Run ssh-audit in JSON format for detailed analysis
-      ansible.builtin.command: "ssh-audit --json {{ ansible_facts['default_ipv4']['address'] }}:12345"
-      delegate_to: localhost
-      become: false
-      register: ssh_audit_json_result
-      changed_when: false
-      failed_when: false
-
-    - name: Parse ssh-audit JSON results
-      ansible.builtin.set_fact:
-        ssh_audit_json: "{{ ssh_audit_json_result.stdout | from_json }}"
-      when: ssh_audit_json_result.rc in [0, 2]
-
-    - name: Verify no critical or high severity findings
-      ansible.builtin.assert:
-        that:
-          - ssh_audit_json_result.rc in [0, 2]
-          - ssh_audit_json.banner is defined
-          - ssh_audit_json.banner.software is defined
-        fail_msg: "ssh-audit JSON output is missing expected fields"
-        success_msg: "ssh-audit completed analysis successfully"
+          - ssh_audit_json.banner.software is not none
+        fail_msg: "ssh-audit exit code {{ ssh_audit_result.rc }}: {{ ssh_audit_json.recommendations | default({}) }}"
 
     - name: Check for weak algorithms (if any are reported)
       ansible.builtin.debug:

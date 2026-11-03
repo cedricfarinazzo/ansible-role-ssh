@@ -1,0 +1,15 @@
+---
+# The package version, not `ssh -V`: the client is not always installed (EL ships it apart).
+- name: Gather package facts
+  ansible.builtin.package_facts:
+    manager: auto
+
+- name: Set the OpenSSH version fact
+  ansible.builtin.set_fact:
+    openssh_version: "{{ ansible_facts['packages'][ssh_package][0]['version'] | regex_search('[0-9]+\\.[0-9]+') }}"
+
+- name: Fail on an OpenSSH older than the role supports
+  ansible.builtin.assert:
+    that: openssh_version is version(openssh_minimum_version, '>=')
+    fail_msg: "OpenSSH {{ openssh_version }} is older than {{ openssh_minimum_version }}, the oldest supported version"
+    quiet: true

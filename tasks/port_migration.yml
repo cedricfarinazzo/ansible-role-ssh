@@ -1,0 +1,6 @@
+---
+- name: Stage A, listen on both ports and prove a login on ssh_port
+  ansible.builtin.import_tasks: stage_a.yml
+
+- name: Stage B, drop ssh_port_migration_from
+  ansible.builtin.import_tasks: stage_b.yml

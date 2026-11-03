@@ -1,0 +1,13 @@
+---
+- name: Install the SELinux management tools
+  ansible.builtin.package:
+    name: "{{ ssh_selinux_packages }}"
+    state: present
+
+# Without the ssh_port_t label sshd cannot bind a non-default port while SELinux enforces.
+- name: Label the SSH port ssh_port_t
+  community.general.seport:
+    ports: "{{ ssh_port }}"
+    proto: tcp
+    setype: ssh_port_t
+    state: present

@@ -1,4 +1,6 @@
 ---
-# OS-specific variables for RedHat/CentOS/Rocky
-ssh_package: openssh-server
-ssh_service_name: sshd
+# OS-family variables for RHEL, Rocky, AlmaLinux
+openssh_package: openssh-server
+openssh_service_name: sshd
+openssh_selinux_packages:
+  - policycoreutils-python-utils

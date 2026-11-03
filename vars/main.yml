@@ -1,0 +1,72 @@
+---
+# Algorithms the role may offer, with the OpenSSH version range that knows them (min inclusive,
+# until exclusive). sshd -t rejects an unknown name, so every entry carries its real minimum.
+openssh_minimum_version: "8.9"
+
+openssh_kex_candidates:
+  - {name: mlkem768x25519-sha256, min: "9.9", until: "99"}
+  - {name: sntrup761x25519-sha512, min: "9.9", until: "99"}
+  - {name: sntrup761x25519-sha512@openssh.com, min: "8.5", until: "99"}
+  - {name: curve25519-sha256, min: "7.4", until: "99"}
+  - {name: curve25519-sha256@libssh.org, min: "6.5", until: "99"}
+  # OpenSSH 10.0 disables finite-field DH by default; the role follows it.
+  - {name: diffie-hellman-group16-sha512, min: "7.3", until: "10.0"}
+  - {name: diffie-hellman-group18-sha512, min: "7.3", until: "10.0"}
+  - {name: diffie-hellman-group-exchange-sha256, min: "4.4", until: "10.0"}
+
+openssh_cipher_candidates:
+  - {name: chacha20-poly1305@openssh.com, min: "6.5", until: "99"}
+  - {name: aes256-gcm@openssh.com, min: "6.2", until: "99"}
+  - {name: aes128-gcm@openssh.com, min: "6.2", until: "99"}
+  - {name: aes256-ctr, min: "5.2", until: "99"}
+  - {name: aes192-ctr, min: "5.2", until: "99"}
+  - {name: aes128-ctr, min: "5.2", until: "99"}
+
+openssh_mac_candidates:
+  - {name: hmac-sha2-512-etm@openssh.com, min: "6.2", until: "99"}
+  - {name: hmac-sha2-256-etm@openssh.com, min: "6.2", until: "99"}
+  - {name: umac-128-etm@openssh.com, min: "6.2", until: "99"}
+
+# Server host key signatures; ECDSA is left out (ssh-audit).
+openssh_host_key_candidates:
+  - {name: sk-ssh-ed25519-cert-v01@openssh.com, min: "8.2", until: "99"}
+  - {name: ssh-ed25519-cert-v01@openssh.com, min: "6.5", until: "99"}
+  - {name: rsa-sha2-512-cert-v01@openssh.com, min: "7.8", until: "99"}
+  - {name: rsa-sha2-256-cert-v01@openssh.com, min: "7.8", until: "99"}
+  - {name: sk-ssh-ed25519@openssh.com, min: "8.2", until: "99"}
+  - {name: ssh-ed25519, min: "6.5", until: "99"}
+  - {name: rsa-sha2-512, min: "7.2", until: "99"}
+  - {name: rsa-sha2-256, min: "7.2", until: "99"}
+
+# Opt-in through ssh_pubkey_accept_sk_ecdsa: FIDO keys from authenticators without Ed25519 support.
+openssh_sk_ecdsa_candidates:
+  - {name: sk-ecdsa-sha2-nistp256-cert-v01@openssh.com, min: "8.2", until: "99"}
+  - {name: sk-ecdsa-sha2-nistp256@openssh.com, min: "8.2", until: "99"}
+
+openssh_ca_signature_candidates:
+  - {name: sk-ssh-ed25519@openssh.com, min: "8.2", until: "99"}
+  - {name: ssh-ed25519, min: "6.5", until: "99"}
+  - {name: rsa-sha2-512, min: "7.2", until: "99"}
+  - {name: rsa-sha2-256, min: "7.2", until: "99"}
+
+# Only Debian- and Red Hat-patched builds know GSSAPIKexAlgorithms.
+openssh_gssapi_kex_algorithms:
+  - gss-curve25519-sha256-
+  - gss-group16-sha512-
+openssh_supports_gssapi_kex: "{{ ansible_facts['os_family'] in ['Debian', 'RedHat'] }}"
+
+# Lazily evaluated once openssh_version is set (tasks/openssh_version.yml).
+openssh_kex_available: "{{ openssh_kex_candidates | selectattr('min', 'version', openssh_version, '<=') | rejectattr('until', 'version', openssh_version, '<=') | map(attribute='name') | list }}"
+openssh_ciphers_available: "{{ openssh_cipher_candidates | selectattr('min', 'version', openssh_version, '<=') | rejectattr('until', 'version', openssh_version, '<=') | map(attribute='name') | list }}"
+openssh_macs_available: "{{ openssh_mac_candidates | selectattr('min', 'version', openssh_version, '<=') | rejectattr('until', 'version', openssh_version, '<=') | map(attribute='name') | list }}"
+openssh_host_key_algorithms_available: "{{ openssh_host_key_candidates | selectattr('min', 'version', openssh_version, '<=') | rejectattr('until', 'version', openssh_version, '<=') | map(attribute='name') | list }}"
+openssh_sk_ecdsa_available: "{{ openssh_sk_ecdsa_candidates | selectattr('min', 'version', openssh_version, '<=') | rejectattr('until', 'version', openssh_version, '<=') | map(attribute='name') | list }}"
+openssh_ca_signature_available: "{{ openssh_ca_signature_candidates | selectattr('min', 'version', openssh_version, '<=') | rejectattr('until', 'version', openssh_version, '<=') | map(attribute='name') | list }}"
+
+# Directives newer than openssh_minimum_version.
+openssh_supports_required_rsa_size: "{{ openssh_version is version('9.1', '>=') }}"
+openssh_supports_connection_timeouts: "{{ openssh_version is version('9.2', '>=') }}"
+openssh_supports_per_source_penalties: "{{ openssh_version is version('9.8', '>=') }}"
+
+# Connection plugins over which ansible_port selects the sshd port.
+openssh_ssh_connection_plugins: [ssh, smart, paramiko, ansible.builtin.ssh, ansible.legacy.ssh, ansible.builtin.paramiko_ssh]

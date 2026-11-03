@@ -1,4 +1,6 @@
 ---
-# OS-specific variables for Debian/Ubuntu
-ssh_package: openssh-server
-ssh_service_name: ssh
+# OS-family variables for Debian and Ubuntu
+openssh_package: openssh-server
+openssh_service_name: ssh
+openssh_selinux_packages:
+  - policycoreutils-python-utils

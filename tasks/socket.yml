@@ -1,0 +1,24 @@
+---
+# Ubuntu 22.10+ starts sshd from ssh.socket; a generator derives its listeners from sshd_config.
+- name: Read the state of ssh.socket
+  ansible.builtin.systemd_service:
+    name: ssh.socket
+  register: ssh_socket_unit
+  failed_when: false
+
+- name: Record whether ssh.socket drives sshd
+  ansible.builtin.set_fact:
+    openssh_socket_enabled: "{{ ssh_socket_unit.status.UnitFileState | default('') == 'enabled' }}"
+
+- name: Record whether the role keeps socket activation
+  ansible.builtin.set_fact:
+    openssh_socket_activated: "{{ openssh_socket_enabled and (ssh_socket_activation | bool) }}"
+
+- name: Stop socket activation in favour of the SSH service
+  ansible.builtin.systemd_service:
+    name: ssh.socket
+    state: stopped
+    enabled: false
+  when:
+    - openssh_socket_enabled
+    - not (ssh_socket_activation | bool)

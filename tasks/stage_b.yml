@@ -1,0 +1,78 @@
+---
+# Runs only with a login proven on ssh_port; until the final config is written a failure changes nothing.
+- name: Drop ssh_port_migration_from
+  block:
+    - name: Mark the final configuration as not written
+      ansible.builtin.set_fact:
+        openssh_final_written: false
+
+    - name: Log in on ssh_port before dropping the old port
+      ansible.builtin.import_tasks: use_port.yml
+      vars:
+        openssh_target_port: "{{ ssh_port }}"
+
+    - name: Check from the controller that OpenSSH answers on ssh_port
+      ansible.builtin.wait_for:
+        host: "{{ ansible_host | default(inventory_hostname) }}"
+        port: "{{ ssh_port }}"
+        search_regex: '^SSH-2\.0-OpenSSH'
+        timeout: "{{ ssh_port_migration_timeout }}"
+      delegate_to: localhost
+      become: false
+      check_mode: false
+      when: ansible_connection | default('ssh') in openssh_ssh_connection_plugins
+
+    - name: Keep the two-port sshd_config
+      ansible.builtin.copy:
+        src: /etc/ssh/sshd_config
+        dest: /etc/ssh/sshd_config.pre-port-migration-final
+        remote_src: true
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Mark the final configuration as written
+      ansible.builtin.set_fact:
+        openssh_final_written: true
+
+    - name: Write the final configuration
+      ansible.builtin.import_tasks: config.yml
+
+    - name: Restart sshd on ssh_port only
+      ansible.builtin.meta: flush_handlers
+
+    - name: Log in on ssh_port again
+      ansible.builtin.import_tasks: use_port.yml
+      vars:
+        openssh_target_port: "{{ ssh_port }}"
+
+  rescue:
+    - name: Go back to ssh_port_migration_from (nothing was changed yet)
+      ansible.builtin.set_fact:
+        ansible_port: "{{ ssh_port_migration_from }}"
+        ansible_ssh_port: "{{ ssh_port_migration_from }}"
+      when: not openssh_final_written
+
+    - name: Reopen the connection on the old port
+      ansible.builtin.meta: reset_connection
+
+    # Reachable only if ssh_port still accepts logins, e.g. when the final config was refused by sshd -t.
+    - name: Put the two-port sshd_config back
+      ansible.builtin.copy:
+        src: /etc/ssh/sshd_config.pre-port-migration-final
+        dest: /etc/ssh/sshd_config
+        remote_src: true
+        owner: root
+        group: root
+        mode: '0644'
+      when: openssh_final_written
+
+    - name: Restart sshd on the two-port configuration
+      ansible.builtin.import_tasks: restart.yml
+      when: openssh_final_written
+
+    - name: Stop the migration
+      ansible.builtin.fail:
+        msg: >-
+          {{ 'The final sshd_config failed; the two-port configuration is back'
+             if openssh_final_written else 'No proven login on port ' ~ ssh_port ~ '; nothing was changed' }}

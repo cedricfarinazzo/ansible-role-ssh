@@ -1,0 +1,17 @@
+---
+- name: Reload systemd so the ssh.socket generator reads the restored port
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+  when: openssh_socket_activated | default(false)
+
+- name: Restart ssh.socket on the restored configuration
+  ansible.builtin.systemd_service:
+    name: ssh.socket
+    state: restarted
+  when: openssh_socket_activated | default(false)
+
+- name: Restart sshd on the restored configuration
+  ansible.builtin.service:
+    name: "{{ ssh_service_name }}"
+    state: restarted
+  when: not (openssh_socket_activated | default(false))

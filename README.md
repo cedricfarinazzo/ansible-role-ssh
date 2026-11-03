@@ -21,7 +21,7 @@ The role will automatically:
 - ✅ Install and configure OpenSSH server
 - ✅ Apply hardened security settings based on [SSH Audit hardening guides](https://www.ssh-audit.com/hardening_guides.html)
 - ✅ Generate secure host keys if they don't exist
-- ✅ Configure custom SSH port (default: 22) for security through obscurity
+- ✅ Configure the SSH port (default: 22), with an optional lock-out-safe move to a new port
 - ✅ Disable password authentication and root login
 - ✅ Enable only secure cryptographic algorithms
 
@@ -29,15 +29,29 @@ The role will automatically:
 
 | Component | Requirement |
 |-----------|-------------|
-| **Operating System** | Linux (Debian/Ubuntu/RHEL/CentOS/Rocky) |
-| **Ansible** | Version 2.9+ |
-| **Python** | Python 3.8+ on target hosts |
+| **Operating System** | Debian, Ubuntu, RHEL family (see below) |
+| **Ansible** | ansible-core 2.15+ (CI tests the version pinned in `requirements-dev.txt`) |
+| **Collections** | `ansible.posix`, `community.general` (`requirements.yml`) |
 | **Privileges** | Root or sudo access on target hosts |
 
 ### Supported Distributions
 
-- ✅ **Debian** 11, 12
-- ✅ **Ubuntu** 20.04, 22.04, 24.04
+Each is tested in CI with Molecule; the port migration is also tested over real SSH (`tests/migration/run.sh`; in CI on Debian and Ubuntu, EL locally). The oldest OpenSSH the role accepts is 8.9.
+
+| Distribution | Versions | OpenSSH |
+|--------------|----------|---------|
+| **Debian** | 12, 13 | 9.2, 10.0 |
+| **Ubuntu** | 22.04, 24.04, 26.04 | 8.9, 9.6, 10.2 |
+| **Rocky Linux / RHEL family** | 9, 10 | 9.9, 9.9 |
+
+The role reads the installed OpenSSH version from the package database and loads the algorithm set for it, so the crypto follows OpenSSH, not the distribution name.
+
+#### Platform notes
+
+- **Ubuntu 22.10+ socket activation:** with `ssh_socket_activation: false` (default) the role disables `ssh.socket` and runs the plain `ssh` service, so `Port` is honoured directly. With `true` it keeps the socket and runs `systemctl daemon-reload` + restarts `ssh.socket` when the configuration changes.
+- **SELinux (RHEL family):** when SELinux is enabled the role installs `policycoreutils-python-utils` and labels `ssh_port` as `ssh_port_t`, so sshd can bind a non-default port.
+- **RHEL crypto-policies:** the role writes the full `sshd_config` without the `sshd_config.d` include (unless `ssh_include_config_dir: true`), so its algorithm lists apply instead of the system crypto policy.
+- `DebianBanner` is only written on Debian and Ubuntu, whose OpenSSH builds carry that patch.
 
 ## ⚙️ Configuration
 
@@ -48,15 +62,20 @@ The role uses secure defaults but can be customized through these variables:
 #### SSH Service Configuration
 ```yaml
 # Package and service management
-ssh_package: openssh-server           # Package name
+ssh_package: openssh-server           # Package name (per OS family by default)
 ssh_package_state: present           # Package state
-ssh_service_name: sshd               # Service name (auto-detected)
+ssh_service_name: ssh                # Service name (per OS family: ssh on Debian/Ubuntu, sshd on EL)
+ssh_selinux_packages: [policycoreutils-python-utils]  # Installed when SELinux is enabled
 ssh_service_state: started           # Service state
 ssh_service_enabled: true            # Enable on boot
+ssh_socket_activation: false         # Ubuntu 22.10+: keep ssh.socket (true) or use the plain service
 
 # Network settings
 ssh_port: 22                         # SSH port
-ssh_protocol: 2                      # SSH protocol version
+ssh_port_migration: false            # Two-stage move from ssh_port_migration_from (see below)
+ssh_port_migration_from: 22
+ssh_port_migration_timeout: 30       # Seconds to wait for a login on the new port
+ssh_port_probe_timeout: 3            # Controller probe in tasks_from: port_probe.yml
 ```
 
 #### Authentication Configuration
@@ -71,6 +90,9 @@ ssh_pubkey_authentication: true      # Enable public key authentication
 ssh_password_authentication: false   # Disable password authentication
 ssh_permit_empty_passwords: false    # Disable empty passwords
 ssh_kbd_interactive_authentication: false  # Disable keyboard-interactive auth
+ssh_hostbased_authentication: false  # Disable host-based auth
+ssh_ignore_rhosts: true              # Ignore .rhosts / .shosts
+ssh_authentication_methods: ""       # e.g. "publickey"; empty: sshd default
 
 # Kerberos and GSSAPI
 ssh_kerberos_authentication: false   # Disable Kerberos
@@ -91,6 +113,7 @@ ssh_generate_host_keys: true         # Generate host keys if missing
 ssh_host_key_types:                  # Key types to generate
   - rsa
   - ed25519
+ssh_host_key_rsa_bits: 4096          # Size of a generated RSA host key
 ```
 
 #### Security and Hardening
@@ -98,44 +121,68 @@ ssh_host_key_types:                  # Key types to generate
 # Connection settings
 ssh_client_alive_count_max: 3        # Max missed keepalive messages
 ssh_client_alive_interval: 120       # Keepalive interval in seconds
-ssh_max_startups: "10:30:100"        # Connection rate limiting
+ssh_max_startups: "10:30:60"         # Unauthenticated connection rate limiting
+ssh_per_source_max_startups: ""      # e.g. "10" (empty: sshd default)
+ssh_per_source_net_block_size: ""    # e.g. "32:128"
+ssh_per_source_penalties: ""         # OpenSSH 9.8+, empty keeps sshd's defaults (on)
+ssh_per_source_penalty_exempt_list: []  # OpenSSH 9.8+, e.g. your management network
+ssh_unused_connection_timeout: ""    # OpenSSH 9.2+, e.g. "5m"
+ssh_channel_timeout: ""              # OpenSSH 9.2+, e.g. "session=30m"
 
-# Forwarding settings
-ssh_allow_agent_forwarding: false    # Disable agent forwarding
-ssh_x11_forwarding: false           # Disable X11 forwarding
-ssh_compression: true                # Enable compression
+# Forwarding and session features (all off)
+ssh_allow_agent_forwarding: false
+ssh_allow_tcp_forwarding: false
+ssh_allow_stream_local_forwarding: false
+ssh_gateway_ports: false
+ssh_permit_tunnel: false
+ssh_x11_forwarding: false
+ssh_permit_user_environment: false
+ssh_compression: false               # Off: OpenSSH 10.6 disabled its dictionaries after a plaintext-recovery attack
 
 # User restrictions
-ssh_allow_users:                     # Allowed users
-  - infra
+ssh_allow_users: []                  # Allowed users (empty list: no AllowUsers line)
 
 # Authorized keys
-ssh_authorized_keys_file: .ssh/authorized_keys .ssh/authorized_keys2  # Location of authorized keys file
+ssh_authorized_keys_file: .ssh/authorized_keys  # authorized_keys2 is deprecated upstream
 ssh_authorized_keys: []               # List of authorized keys to manage
 
+# Logging
+ssh_syslog_facility: AUTH
+ssh_log_level: VERBOSE                # Logs the fingerprint of the key used at each login
+
 # Additional settings
-ssh_print_motd: false                 # Print message of the day
+ssh_subsystem_sftp: ""                # SFTP server command, e.g. /usr/lib/openssh/sftp-server (empty: no Subsystem line)
+ssh_print_motd: false
 ssh_banner: none                      # SSH banner file path
-ssh_debian_banner: false              # Enable Debian banner
-ssh_accept_env: "LANG LC_*"           # Environment variables to accept
-ssh_syslog_facility: AUTH             # Syslog facility for SSH messages
+ssh_debian_banner: false              # Debian/Ubuntu only
+ssh_accept_env: "LANG LC_*"
+ssh_additional_config: []             # Raw lines written last (Match blocks); cannot override a directive set above
+ssh_include_config_dir: false         # Include sshd_config.d/*.conf first: drop-ins then win over the role
+ssh_config_dir: /etc/ssh/sshd_config.d  # Directory included by ssh_include_config_dir
 ```
 
 #### Cryptographic Algorithms
-The role includes hardened cryptographic settings based on [SSH Audit hardening guides](https://www.ssh-audit.com/hardening_guides.html):
 
-Cryptographic algorithm values are automatically configured per operating system through dedicated variable files in `vars/` directory:
+The algorithm lists follow the [ssh-audit hardening guides](https://www.ssh-audit.com/hardening_guides.html) and are computed from the installed OpenSSH version: `vars/main.yml` lists every algorithm the role may offer with the OpenSSH version range that knows it, and the role keeps those the installed version supports (`sshd -t` rejects an unknown name).
 
-- `vars/openssh-8.2.yml` - Compatible with Ubuntu 20.04 (8.2), Debian 11 (8.4)
-- `vars/openssh-9.2.yml` - Compatible with Debian 12 (9.2) 
-- `vars/openssh-9.6.yml` - Compatible with Ubuntu 24.04 (9.6)
+| What | Default |
+|------|---------|
+| Key exchange | `mlkem768x25519-sha256` and `sntrup761x25519-sha512` (OpenSSH 9.9+), `sntrup761x25519-sha512@openssh.com`, `curve25519-sha256`; finite-field DH (`group16`, `group18`, `group-exchange-sha256`) only below OpenSSH 10.0, which disables it by default |
+| Ciphers | `chacha20-poly1305`, AES-GCM, AES-CTR |
+| MACs | encrypt-then-MAC only: `hmac-sha2-512-etm`, `hmac-sha2-256-etm`, `umac-128-etm` |
+| Host keys / user keys | Ed25519, FIDO Ed25519 (`sk-ssh-ed25519`), RSA-SHA2, with their certificates; no ECDSA |
+| DH moduli | `/etc/ssh/moduli` filtered to 3072 bits and more |
 
-These files ensure compatibility with each distribution's OpenSSH version and available algorithms. The role automatically detects the OpenSSH version and loads the appropriate algorithm configuration.
-
-##### Cryptographic options
 ```yaml
-# RSA Key Requirements
-ssh_required_rsa_size: 4096           # Minimum RSA key size
+ssh_kex_post_quantum_only: false      # true: offer only ML-KEM / sntrup hybrids (as ssh-audit's Debian 13 / Ubuntu 26.04 guides)
+ssh_pubkey_accept_sk_ecdsa: false     # true: accept FIDO ECDSA keys, for authenticators without ed25519-sk
+ssh_required_rsa_size: 4096           # Minimum RSA key size (OpenSSH 9.1+)
+ssh_moduli_minimum: 3072              # 0 leaves /etc/ssh/moduli untouched
+
+# Each list can be replaced as a whole, e.g. in group_vars:
+# ssh_kex_algorithms: [mlkem768x25519-sha256, curve25519-sha256]
+# ssh_ciphers / ssh_macs / ssh_host_key_algorithms / ssh_pubkey_accepted_algorithms /
+# ssh_hostbased_accepted_algorithms / ssh_ca_signature_algorithms / ssh_gssapi_kex_algorithms
 ```
 
 ## 🎯 Usage Examples
@@ -160,6 +207,39 @@ ssh_required_rsa_size: 4096           # Minimum RSA key size
           - admin
           - developer
           - deploy
+```
+
+### Moving SSH to a new port without locking yourself out
+
+With `ssh_port_migration: true`, when sshd does not answer on `ssh_port` yet the role moves it in two stages:
+
+1. **Stage A:** sshd listens on `ssh_port` **and** `ssh_port_migration_from`, then Ansible reconnects on `ssh_port`, proves a login (`wait_for_connection`) and checks the session really uses `ssh_port`. If any of that fails, the previous `sshd_config` is restored on the old port and the play stops.
+2. **Stage B:** the login on `ssh_port` is proven again and the controller sees an OpenSSH banner there; only then is the old port dropped, and the login is proven once more. If sshd refuses the final configuration, the two-port configuration is restored. A login that breaks after the old port is gone cannot be rolled back from Ansible: that is why stage B needs the proofs first.
+
+"sshd already answers on `ssh_port`" means an OpenSSH banner there, not just an open port. A rerun after an interrupted stage B (sshd on both ports, connection on the old one) runs stage B only. The session port is read on the target (`SSH_CONNECTION`, without become), so `ansible_port` and `ansible_ssh_port` cannot disagree silently; the role sets both, and stops if the port cannot be read over SSH. Do not pin the old port with `-e ansible_port=…` (extra vars beat the role).
+
+A run on a host already answering on `ssh_port` is a normal run. The role does not touch the firewall: open `ssh_port` before the play.
+
+On the first contact the inventory already says the new port while sshd is still on the old one; `tasks_from: port_probe.yml` checks from the controller and connects on the old port while needed:
+
+```yaml
+- hosts: ssh_servers
+  become: true
+  gather_facts: false
+  vars:
+    ansible_port: 2222
+    ssh_port: 2222
+    ssh_port_migration: true
+    ssh_port_migration_from: 22
+  pre_tasks:
+    - name: Find the port sshd answers on
+      ansible.builtin.include_role:
+        name: cedricfarinazzo.ssh
+        tasks_from: port_probe.yml
+    - name: Gather facts
+      ansible.builtin.setup:
+  roles:
+    - cedricfarinazzo.ssh
 ```
 
 ### Authorized Keys Management
@@ -199,9 +279,9 @@ ssh_required_rsa_size: 4096           # Minimum RSA key size
     - role: cedricfarinazzo.ssh
       vars:
         ssh_additional_config:
-          - "PermitTunnel no"
-          - "ChrootDirectory none"
-          - "AllowTcpForwarding no"
+          - "Match Group sftponly"
+          - "  ForceCommand internal-sftp"
+          - "  ChrootDirectory %h"
 ```
 
 ## 🧪 Testing
@@ -219,18 +299,18 @@ make molecule-test-all
 source .venv/bin/activate && yamllint . && ansible-lint
 ```
 
-CI (`.github/workflows/ci.yml`) runs the lint and the Molecule matrix on every pull request.
+CI (`.github/workflows/ci.yml`) runs the lint, the Molecule matrix and the real-SSH port-migration test (`tests/migration/run.sh`) on every pull request.
 
 ## 🚢 Releases
 
-Versions are cut by [semantic-release](https://github.com/semantic-release/semantic-release) from [Conventional Commits](https://www.conventionalcommits.org/) on `main`: `fix:` releases a patch, `feat:` a minor, a `!` or `BREAKING CHANGE:` footer a major. Pull requests are squash-merged, so the pull request title must follow the convention (checked in CI). Each release gets a bare semver tag (`1.2.3`) and GitHub release notes; Ansible Galaxy imports the new tag from the repository. [Renovate](https://docs.renovatebot.com/) keeps the tooling and the pinned GitHub Actions up to date.
+Versions are cut by [semantic-release](https://github.com/semantic-release/semantic-release) from [Conventional Commits](https://www.conventionalcommits.org/) on `main`: `fix:` releases a patch, `feat:` a minor, a `!` or `BREAKING CHANGE:` footer a major. semantic-release reads every commit that lands on `main`: a squash merge lands the pull request title (checked in CI), a merge commit lands each branch commit, so both must follow the convention. Each release gets a bare semver tag (`1.2.3`) and GitHub release notes; Ansible Galaxy imports the new tag from the repository. [Renovate](https://docs.renovatebot.com/) keeps the tooling and the pinned GitHub Actions up to date.
 
 ## 📦 Dependencies
 
 This role has **minimal external dependencies** and uses:
 - ✅ **Ansible Core Modules** (built-in)
 - ✅ **Standard OS Packages** (openssh-server)
-- ✅ **Optional Collections** (community.general, ansible.posix)
+- ✅ **Collections** `community.general` (SELinux port) and `ansible.posix` (authorized keys), from `requirements.yml`
 
 ## 👥 Authors & Contributors
 
