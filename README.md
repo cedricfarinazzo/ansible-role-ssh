@@ -9,6 +9,19 @@ This role provides a secure, production-ready SSH server configuration with supp
 
 ## 🚀 Quick Start
 
+Install from Ansible Galaxy ([cedricfarinazzo.ssh](https://galaxy.ansible.com/cedricfarinazzo/ssh)), pinned to a release:
+
+```yaml
+# requirements.yml
+roles:
+  - name: cedricfarinazzo.ssh
+    version: 2.0.0
+```
+
+```bash
+ansible-galaxy role install -r requirements.yml
+```
+
 ```yaml
 # Simple setup with secure defaults
 - hosts: ssh_servers
@@ -303,7 +316,7 @@ CI (`.github/workflows/ci.yml`) runs the lint, the Molecule matrix and the real-
 
 ## 🚢 Releases
 
-Once CI passes on `main`, [semantic-release](https://github.com/semantic-release/semantic-release) cuts the version from [Conventional Commits](https://www.conventionalcommits.org/): `fix:` releases a patch, `feat:` a minor, a `!` or `BREAKING CHANGE:` footer a major. semantic-release reads every commit that lands on `main`: a squash merge lands the pull request title (checked in CI), a merge commit lands each branch commit, so both must follow the convention. Each release gets a bare semver tag (`1.2.3`) and GitHub release notes; Ansible Galaxy imports the new tag from the repository. [Renovate](https://docs.renovatebot.com/) keeps the tooling and the pinned GitHub Actions up to date.
+Once CI passes on `main`, [semantic-release](https://github.com/semantic-release/semantic-release) cuts the version from [Conventional Commits](https://www.conventionalcommits.org/): `fix:` releases a patch, `feat:` a minor, a `!` or `BREAKING CHANGE:` footer a major. A squash merge lands the pull request title (checked in CI), a merge commit lands each branch commit, so both must follow the convention. Each release gets a bare semver tag (`1.2.3`) and GitHub release notes; Ansible Galaxy imports the new tag from the repository. [Renovate](https://docs.renovatebot.com/) keeps the tooling and the pinned GitHub Actions up to date.
 
 ## 📦 Dependencies
 
@@ -315,3 +328,7 @@ This role has **minimal external dependencies** and uses:
 ## 👥 Authors & Contributors
 
 **Cédric Farinazzo** ([@cedricfarinazzo](https://github.com/cedricfarinazzo)) - *Author and Maintainer*
+
+## 📄 License
+
+MIT, see [LICENSE](LICENSE).
