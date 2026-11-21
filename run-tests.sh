@@ -67,7 +67,7 @@ echo "Python virtual environment: ${VENV_PATH}"
 
 # Pull Docker image in advance to avoid timeout issues
 echo -e "${YELLOW}Pulling Docker image...${NC}"
-docker pull geerlingguy/docker-${1:-debian12}-ansible:latest
+docker pull "geerlingguy/docker-${1:-debian12}-ansible:latest"
 
 # Set up environment variables
 export MOLECULE_DISTRO=${1:-debian12}

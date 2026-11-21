@@ -23,7 +23,7 @@ Public Ansible role `cedricfarinazzo.ssh` (Ansible Galaxy): installs OpenSSH ser
 - `requirements.yml` — collections the role needs at runtime (consumer-facing ranges).
 - `requirements-dev.txt` — controller tooling (ansible-core, ansible-lint, molecule, molecule-plugins, yamllint, ssh-audit), exact pins.
 - `package.json`, `bun.lock`, `.releaserc.json` — semantic-release tooling only; the role itself has no Node code.
-- `.github/workflows/` — `ci.yml` (lint, Molecule matrix, real-SSH `migration` job), `pr-title.yml` (Conventional Commit title check), `release.yml` (semantic-release after `ci.yml` passes on `main`).
+- `.github/workflows/` — `ci.yml` (lint with shellcheck over every tracked `*.sh`, Molecule matrix, real-SSH `migration` job), `pr-title.yml` (Conventional Commit title check), `release.yml` (semantic-release after `ci.yml` passes on `main`).
 - `renovate.json` — dependency updates.
 
 ## Conventions
@@ -59,7 +59,7 @@ Public Ansible role `cedricfarinazzo.ssh` (Ansible Galaxy): installs OpenSSH ser
 
 ## Commands
 
-- Lint: `source .venv/bin/activate && yamllint . && ansible-lint`
+- Lint: `source .venv/bin/activate && yamllint . && ansible-lint && git ls-files -z '*.sh' | xargs -0 shellcheck`
 - Molecule on one distro: `./run-tests.sh debian12` (creates `.venv` from `requirements-dev.txt`)
 - All distros: `make molecule-test-all`
 - Install release tooling: `bun install --frozen-lockfile`

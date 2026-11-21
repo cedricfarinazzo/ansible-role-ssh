@@ -30,6 +30,8 @@ jobs:
           sys.exit(f'meta/main.yml description: {len(d)} characters, Galaxy accepts 255') if len(d) > 255 else print(len(d), 'characters')
           "
       - run: ansible-lint
+      # Every tracked shell script, so a new one is linted without editing this list
+      - run: git ls-files -z '*.sh' | xargs -0 shellcheck
 
   molecule:
     runs-on: ubuntu-26.04

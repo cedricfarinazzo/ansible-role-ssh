@@ -65,6 +65,7 @@ all:
 INV
 }
 play() { ANSIBLE_ROLES_PATH=$WORK ansible-playbook -i "$WORK/inventory.yml" "$ROOT/tests/migration/play.yml" "$@"; }
+# shellcheck disable=SC2329 # called through check
 open_port() { timeout 3 bash -c "</dev/tcp/$IP/$1" 2>/dev/null; }
 fails=0
 check() { if "${@:2}"; then echo "ok   $1"; else echo "FAIL $1" >&2; fails=$((fails + 1)); fi; }
@@ -95,6 +96,7 @@ docker exec "$NAME" bash -c "sed -i 's/^Port 2222$/Port 2222\nPort 2224/' /etc/s
 check "both ports open before the interrupted run" bash -c "timeout 3 bash -c '</dev/tcp/$IP/2224' && timeout 3 bash -c '</dev/tcp/$IP/2222'"
 inventory 2224 2222 2222
 play "$@" > "$WORK/run4.log" 2>&1 && r=0 || r=$?
+# shellcheck disable=SC2329 # called through check
 result() { grep -A1 -F "TASK [ansible-role-ssh : $1]" "$WORK/run4.log" | grep -q "^$2: \[target\]"; }
 check "interrupted migration finishes" test "$r" -eq 0
 check "stage B ran for it" result "Keep the two-port sshd_config" changed
